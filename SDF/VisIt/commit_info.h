@@ -1,0 +1,2 @@
+#define SDF_COMMIT_ID "v1.5.14-35-gd413700-clean"
+#define SDF_COMMIT_DATE "Mon Nov 25 20:38:05 2019 +0000"
