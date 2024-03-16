@@ -865,10 +865,6 @@ CONTAINS
 
   SUBROUTINE update_eb_fields_half
 
-#ifdef PERFMON
-    CALL timer_perf_start
-    
-#endif
     hdt  = 0.5_num * dt
     hdtx = hdt / dx
     hdty = hdt / dy
@@ -879,7 +875,7 @@ CONTAINS
     cnz = hdtz * c**2
 
     fac = hdt / epsilon0
-    
+
     ! Update E field to t+dt/2
     CALL update_e_field
 
@@ -894,9 +890,6 @@ CONTAINS
 
     ! Now have E&B fields at t = t+dt/2
     ! Move to particle pusher
-#ifdef PERFMON
-    CALL timer_perf_stop
-#endif
 
   END SUBROUTINE update_eb_fields_half
 

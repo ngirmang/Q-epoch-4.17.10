@@ -40,6 +40,8 @@ MODULE timer
 #ifdef PERFMON
 
   INTEGER, PARAMETER :: nperf_avgsteps = 10
+  INTEGER, PARAMETER :: nperf_samples = 4000
+  
   INTEGER, PARAMETER :: &
        nperf_ebc_mpi  = 1, &
        nperf_ebc_zero = 2, &
@@ -48,10 +50,11 @@ MODULE timer
   
   REAL(num), PARAMETER :: c_perf_avgsteps = REAL(nperf_avgsteps, num)
   
-  INTEGER nperf_steps
-  INTEGER, PRIVATE :: nperf_curstep
-  REAL(num), DIMENSION(:,:), ALLOCATABLE :: timer_perf_times
-  REAL(num), PRIVATE, DIMENSION(:,:), ALLOCATABLE :: perf_avg
+  INTEGER, PRIVATE :: nperf_cursamp
+  REAL(num) timer_perf_times(nperf_num,nperf_samples)
+  REAL(num), PRIVATE :: perf_avg(nperf_num, nperf_avgsteps)
+  !REAL(num), DIMENSION(:,:), ALLOCATABLE :: timer_perf_times
+  !REAL(num), PRIVATE, DIMENSION(:,:), ALLOCATABLE :: perf_avg
   LOGICAL, PRIVATE :: perfticks(nperf_num) = .FALSE., perfpause = .TRUE.
 #endif
 
@@ -134,16 +137,16 @@ CONTAINS
 
 #ifdef PERFMON
   SUBROUTINE timer_perf_init
-    nperf_steps = 0
-    IF (nsteps >= 0) THEN
-      nperf_steps = nsteps / nperf_avgsteps
-      IF ( MOD(nsteps, nperf_avgsteps) > 0 ) nperf_steps = nperf_steps + 1
-    ELSE
-      nperf_steps = NINT(t_end / dt)
-    END IF
-    ALLOCATE(&
-         timer_perf_times(nperf_num,nperf_steps), &
-         perf_avg(nperf_num, nperf_avgsteps))
+    !nperf_steps = 0
+    !IF (nsteps >= 0) THEN
+    !  nperf_steps = nsteps / nperf_avgsteps
+    !  IF ( MOD(nsteps, nperf_avgsteps) > 0 ) nperf_steps = nperf_steps + 1
+    !ELSE
+    !  nperf_steps = NINT(t_end / dt)
+    !END IF
+    !ALLOCATE(&
+    !     timer_perf_times(nperf_num,nperf_steps), &
+    !     perf_avg(nperf_num, nperf_avgsteps))
 
     timer_perf_times  = 0.0_num
     perf_avg = 0.0_num
@@ -151,7 +154,7 @@ CONTAINS
     IF (rank == 0) &
          PRINT '(A,I4.4,I5.4,A)', "initialising timer_perf arrays, size=[", &
          SHAPE(timer_perf_times),"]"
-    nperf_curstep = 1
+    nperf_cursamp = 1
   END SUBROUTINE timer_perf_init
 
   SUBROUTINE timer_perf_tick(index)
@@ -162,13 +165,14 @@ CONTAINS
     tick = perfticks(index)
     IF (step == 0 .OR. perfpause) RETURN
     i = MOD(step, nperf_avgsteps)
+    IF (i > nperf_samples) RETURN
     IF (i == 0) i = nperf_avgsteps
     perf_avg(index,i) = MPI_WTIME() - perf_avg(index,i)
     IF (rank==0 .AND. tick ) &
          PRINT "(A,I1,A,ES9.3)", "perf(index =",index,"), dt = ", perf_avg(index,i)
     IF (tick .AND. i == nperf_avgsteps) THEN !average
-      timer_perf_times(index, nperf_curstep) = SUM(perf_avg(index,:)) / c_perf_avgsteps
-      nperf_curstep = nperf_curstep + 1
+      timer_perf_times(index, nperf_cursamp) = SUM(perf_avg(index,:)) / c_perf_avgsteps
+      nperf_cursamp = nperf_cursamp + 1
       perf_avg(index,:) = 0.0_num
     END IF
 
@@ -195,7 +199,7 @@ CONTAINS
     IF (rank /= 0) RETURN
     OPEN(1338, file=TRIM('timerperfhead.dat'), access='stream')
     WRITE(1338) nperf_num
-    WRITE(1338) nperf_steps
+    WRITE(1338) nperf_samples
     CLOSE(1338)
     
   END SUBROUTINE timer_perf_dump

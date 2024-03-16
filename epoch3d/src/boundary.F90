@@ -69,6 +69,13 @@ CONTAINS
       END DO
     END DO
 
+#ifdef FASTBCS
+    IF (nprocx > 1 .AND. nprocy == 1 .AND. nprocz == 1) THEN
+      IF (rank == 0) PRINT "(A)", "lucky you, using fast_bcs"
+      fastx_bcs = .TRUE.
+    END IF
+    
+#endif
     IF (error) THEN
       errcode = c_err_bad_value
       CALL abort_code(errcode)
@@ -150,7 +157,15 @@ CONTAINS
     INTEGER, INTENT(IN) :: ng
     REAL(num), DIMENSION(1-ng:,1-ng:,1-ng:), INTENT(INOUT) :: field
 
+#ifndef FASTBCS
     CALL do_field_mpi_with_lengths(field, ng, nx, ny, nz)
+#else
+    IF (fastx_bcs) THEN
+      CALL do_field_mpi_with_lengths_fastx_bcs(field, ng, nx, ny, nz)
+    ELSE
+      CALL do_field_mpi_with_lengths(field, ng, nx, ny, nz)
+    END IF
+#endif
 
   END SUBROUTINE field_bc
 
@@ -470,7 +485,124 @@ CONTAINS
 
   END SUBROUTINE do_field_mpi_with_lengths
 
+#ifdef FASTBCS
 
+  
+  SUBROUTINE do_field_mpi_with_lengths_fastx_bcs(field, ng, &
+       nx_local, ny_local, nz_local)
+
+    INTEGER, INTENT(IN) :: ng
+    REAL(num), DIMENSION(1-ng:,1-ng:,1-ng:), INTENT(INOUT) :: field
+    INTEGER, INTENT(IN) :: nx_local, ny_local, nz_local
+    INTEGER, DIMENSION(c_ndims) :: sizes, subsizes, starts
+    INTEGER :: subarray, basetype, sz, szmax, i, j, k, n
+    REAL(num), ALLOCATABLE :: temp(:)
+
+    basetype = mpireal
+
+    sizes(1) = nx_local + 2 * ng
+    sizes(2) = ny_local + 2 * ng
+    sizes(3) = nz_local + 2 * ng
+    starts = 1
+
+    szmax = sizes(1) * sizes(2) * ng
+    sz = sizes(1) * sizes(3) * ng
+    IF (sz > szmax) szmax = sz
+    sz = sizes(2) * sizes(3) * ng
+    IF (sz > szmax) szmax = sz
+
+    ALLOCATE(temp(szmax))
+
+    !xmin/xmax
+    subsizes(1) = ng
+    subsizes(2) = sizes(2)
+    subsizes(3) = sizes(3)
+
+    sz = subsizes(1) * subsizes(2) * subsizes(3)
+
+#ifdef PERFMON
+    CALL timer_perf_tick(1)
+#endif
+    subarray = create_3d_array_subtype(basetype, subsizes, sizes, starts)
+#ifdef PERFMON
+    CALL timer_perf_tick(1)
+#endif
+
+#ifdef PERFMON
+    CALL timer_perf_tick(2)
+#endif    
+    CALL MPI_SENDRECV(field(1,1-ng,1-ng), 1, subarray, proc_x_min, &
+        tag, temp, sz, basetype, proc_x_max, tag, comm, status, errcode)
+
+    IF (.NOT. x_max_boundary .OR. bc_field(c_bd_x_max) == c_bc_periodic) THEN
+      n = 1
+      DO k = 1-ng, subsizes(3)-ng
+      DO j = 1-ng, subsizes(2)-ng
+      DO i = nx_local+1, subsizes(1)+nx_local
+        field(i,j,k) = temp(n)
+        n = n + 1
+      END DO
+      END DO
+      END DO
+    END IF
+
+    CALL MPI_SENDRECV(field(nx_local+1-ng,1-ng,1-ng), 1, subarray, proc_x_max, &
+        tag, temp, sz, basetype, proc_x_min, tag, comm, status, errcode)
+
+    IF (.NOT. x_min_boundary .OR. bc_field(c_bd_x_min) == c_bc_periodic) THEN
+      n = 1
+      DO k = 1-ng, subsizes(3)-ng
+      DO j = 1-ng, subsizes(2)-ng
+      DO i = 1-ng, subsizes(1)-ng
+        field(i,j,k) = temp(n)
+        n = n + 1
+      END DO
+      END DO
+      END DO
+    END IF
+#ifdef PERFMON
+    CALL timer_perf_tick(2)
+#endif    
+
+    CALL MPI_TYPE_FREE(subarray, errcode)
+    DEALLOCATE(temp)
+    
+    !
+    ! from here on out, we just copy
+    ! y
+
+#ifdef PERFMON
+    CALL timer_perf_tick(3)
+#endif    
+    DO k = 1-ng, sizes(3)-ng
+    DO j = 1, ng
+    DO i = 1-ng, sizes(1)-ng
+      ! copy ymax to ymin, reverse order for cache? write is faster? idk
+      field(i,j-ng, k)       = field(i,j+ny_local-ng,k)    
+      ! copy ymin to ymax    
+      field(i,j+ny_local, k) = field(i,j,k)
+    END DO
+    END DO
+    END DO
+
+    ! z
+    DO k = 1, ng
+    DO j = 1-ng, sizes(2)-ng
+    DO i = 1-ng, sizes(1)-ng
+      ! copy zmax to zmin
+      field(i,j,k-ng)        = field(i,j,k+nz_local-ng)
+      field(i,j,k+nz_local)  = field(i,j,k)
+    END DO
+    END DO
+    END DO
+#ifdef PERFMON
+    CALL timer_perf_tick(3)
+#endif    
+
+  END SUBROUTINE do_field_mpi_with_lengths_fastx_bcs
+!endif FASTBCS
+#endif
+  
 
   SUBROUTINE do_field_mpi_with_lengths_r4(field, ng, nx_local, ny_local, &
       nz_local)
@@ -1153,19 +1285,16 @@ CONTAINS
     INTEGER :: i
 
 #ifdef PERFMON
-    CALL timer_perf_tick(nperf_ebc_mpi)
+    CALL timer_perf_start
 #endif
     ! These are the MPI boundaries
     CALL field_bc(ex, ng)
     CALL field_bc(ey, ng)
     CALL field_bc(ez, ng)
 #ifdef PERFMON
-    CALL timer_perf_tick(nperf_ebc_mpi)
+    CALL timer_perf_stop
 #endif
 
-#ifdef PERFMON
-    CALL timer_perf_tick(nperf_ebc_zero)
-#endif
     ! Perfectly conducting boundaries
     DO i = c_bd_x_min, c_bd_x_max, c_bd_x_max - c_bd_x_min
       IF (bc_field(i) == c_bc_conduct) THEN
@@ -1210,9 +1339,6 @@ CONTAINS
         CALL field_zero_gradient(ez, c_stagger_ez, i)
       END IF
     END DO
-#ifdef PERFMON
-    CALL timer_perf_tick(nperf_ebc_zero)
-#endif
 
   END SUBROUTINE efield_bcs
 
@@ -1223,22 +1349,13 @@ CONTAINS
     LOGICAL, INTENT(IN) :: mpi_only
     INTEGER :: i
 
-#ifdef PERFMON
-    CALL timer_perf_tick(nperf_bbc_mpi)
-#endif    
     ! These are the MPI boundaries
     CALL field_bc(bx, ng)
     CALL field_bc(by, ng)
     CALL field_bc(bz, ng)
-#ifdef PERFMON
-    CALL timer_perf_tick(nperf_bbc_mpi)
-#endif
 
     IF (mpi_only) RETURN
     
-#ifdef PERFMON
-    CALL timer_perf_tick(nperf_bbc_zero)
-#endif    
     ! Perfectly conducting boundaries
     DO i = c_bd_x_min, c_bd_x_max, c_bd_x_max - c_bd_x_min
       IF (bc_field(i) == c_bc_conduct) THEN
@@ -1283,9 +1400,6 @@ CONTAINS
         CALL field_zero_gradient(bz, c_stagger_bz, i)
       END IF
     END DO
-#ifdef PERFMON
-    CALL timer_perf_tick(nperf_bbc_zero)
-#endif    
 
   END SUBROUTINE bfield_bcs
 
