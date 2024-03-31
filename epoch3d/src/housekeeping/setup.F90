@@ -251,6 +251,30 @@ CONTAINS
       CALL allocate_cpml_fields
       CALL set_cpml_helpers(nx, nx_global_min, nx_global_max, &
           ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
+#ifdef NEWPML
+    ELSE IF (use_newpml) THEN
+      IF (rank==0) PRINT '(A,ES8.1,A,ES8.1)', "Using new pml, A=", newpml_coeff_A, &
+           ", m=", newpml_coeff_m
+      CALL prep_newpml_helpers(nx, nx_global_min, nx_global_max, &
+          ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
+      cpml_kappa_max = 1.0_num
+      cpml_a_max = 0.0_num
+      cpml_sigma_max = 0.0_num
+      DO i = 1, n_io_blocks
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_eyx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_ezx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_byx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bzx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_exy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_ezy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bxy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bzy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_exz) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_eyz) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bxz) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_byz) = c_io_never
+      END DO
+#endif!NEWPML
     ELSE
       cpml_thickness = 0
       cpml_kappa_max = 1.0_num
@@ -461,7 +485,7 @@ CONTAINS
     nx1 = nx
     IF (bc_field(c_bd_x_min) == c_bc_cpml_laser) nx0 = cpml_x_min_laser_idx-1
     IF (bc_field(c_bd_x_max) == c_bc_cpml_laser) nx1 = cpml_x_max_laser_idx+1
-
+    
     ex_x_min = 0.5_num * (ex(nx0,:,:) + ex(nx0-1,:,:))
     ey_x_min = ey(nx0,:,:)
     ez_x_min = ez(nx0,:,:)

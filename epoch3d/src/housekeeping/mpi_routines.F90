@@ -397,8 +397,13 @@ CONTAINS
     INTEGER :: ny0, nyp
     INTEGER :: nz0, nzp
 
+#ifdef NEWPML
+    IF (.NOT.(cpml_boundaries .OR. use_newpml)) &
+         cpml_thickness = 0
+#else
     IF (.NOT.cpml_boundaries) cpml_thickness = 0
-
+#endif
+    
     CALL split_domain
 
     ALLOCATE(npart_each_rank(nproc))

@@ -52,13 +52,16 @@ CONTAINS
         add_laser(i) = .TRUE.
         any_open = .TRUE.
       END IF
-
+      
       ! Note: reflecting EM boundaries not yet implemented.
       IF (bc_field(i) == c_bc_reflect) bc_field(i) = c_bc_clamp
       IF (bc_field(i) == c_bc_open) bc_field(i) = c_bc_simple_outflow
       IF (bc_field(i) == c_bc_simple_outflow) any_open = .TRUE.
     END DO
-
+#ifdef NEWPML
+    IF(use_newpml) cpml_boundaries = .FALSE.      
+#endif!NEWPML
+    
     error = .FALSE.
     DO ispecies = 1, n_species
       DO i = 1, 2*c_ndims
@@ -130,7 +133,7 @@ CONTAINS
         .OR. boundary == c_bc_cpml_laser &
         .OR. boundary == c_bc_cpml_outflow) &
             boundary = c_bc_open
-
+    
     ! Sanity check on particle boundaries
     error = .FALSE.
     IF (boundary == c_bc_periodic &
@@ -1338,6 +1341,9 @@ CONTAINS
         CALL field_zero_gradient(ey, c_stagger_ey, i)
         CALL field_zero_gradient(ez, c_stagger_ez, i)
       END IF
+#ifdef NEWPML
+      !!!!!!!!! HERE
+#endif
     END DO
 
   END SUBROUTINE efield_bcs
@@ -1399,6 +1405,9 @@ CONTAINS
         CALL field_zero_gradient(by, c_stagger_by, i)
         CALL field_zero_gradient(bz, c_stagger_bz, i)
       END IF
+#ifdef NEWPML
+      !!!!!!!!! HERE
+#endif
     END DO
 
   END SUBROUTINE bfield_bcs
@@ -2609,7 +2618,219 @@ CONTAINS
 
   END SUBROUTINE allocate_cpml_fields
 
+#ifdef NEWPML
+  REAL(num) FUNCTION pml_dist(x,y,z)
+    REAL(num), INTENT(in) :: x,y,z
+    REAL(num) del_x_min, del_y_min, del_z_min, &
+        del_x_max, del_y_max, del_z_max
+    REAL(num) dsq
+    
+    del_x_min = MAX(x_min - x, 0.d0)
+    del_y_min = MAX(y_min - y, 0.d0)
+    del_z_min = MAX(z_min - z, 0.d0)
 
+    del_x_max = MAX(x - x_max, 0.d0)
+    del_y_max = MAX(y - y_max, 0.d0)
+    del_z_max = MAX(z - z_max, 0.d0)
+
+    dsq = del_x_min**2 + del_y_min**2 + del_z_min**2 &
+        + del_x_max**2 + del_y_max**2 + del_z_max**2
+    
+    pml_dist = SQRT(dsq) / pml_thickness_real
+  END FUNCTION pml_dist
+
+  SUBROUTINE set_newpml
+    IF (.NOT. use_newpml) RETURN
+    
+    pml_inv = 1.0_num / (1.0_num + pml_sig * dt / 2.0_num)
+    pml_eye = (1.0_num - pml_sig * dt / 2.0_num)&
+            / (1.0_num + pml_sig * dt / 2.0_num)
+
+    IF (RANK==0) THEN
+      PRINT '(A,ES8.1)', "minval pml_inv=", MINVAL(pml_inv)
+      PRINT '(A,ES8.1)', "minval pml_eye=", MINVAL(pml_eye)
+      PRINT '(A,ES8.1)', "x_min =", x_min
+      PRINT '(A,ES8.1)', "minval pml_sig=", MINVAL(pml_sig)
+      PRINT '(A,ES8.1)', "maxval pml_sig=", MAXVAL(pml_sig)
+    ENDIF
+
+  END SUBROUTINE set_newpml
+  
+  SUBROUTINE prep_newpml_helpers(nx, nx_global_min, nx_global_max, &
+      ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
+
+    INTEGER, INTENT(IN) :: nx, nx_global_min, nx_global_max
+    INTEGER, INTENT(IN) :: ny, ny_global_min, ny_global_max
+    INTEGER, INTENT(IN) :: nz, nz_global_min, nz_global_max
+    
+    INTEGER i, j, k
+    INTEGER st, en
+    INTEGER x_min_offset, x_max_offset, y_min_offset, y_max_offset, &
+         z_min_offset, z_max_offset
+    
+    REAL(num) cx,cy,cz,d
+    ALLOCATE(pml_inv(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
+    ALLOCATE(pml_eye(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
+    ALLOCATE(pml_sig(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
+
+    pml_inv = 1.0_num
+    pml_eye = 1.0_num
+    
+    IF (dx /= dy .OR. dx /= dz) THEN
+      IF (rank == 0) PRINT '(A)',&
+           'ERROR: newpml not implemented for non-square grids yet. Sorry.'
+      CALL abort_code(c_err_bad_setup)
+    END IF
+    pml_thickness_real = cpml_thickness * dx
+    
+    DO k=1-ng,nz+ng
+      cz = zb(k)
+    DO j=1-ng,ny+ng
+      cy = yb(j)
+    DO i=1-ng,nx+ng
+      cx = xb(i)
+
+      d = pml_dist(cx,cy,cz)
+      pml_sig(i,j,k) = (newpml_coeff_m*d + newpml_coeff_a*d**2)
+    END DO
+    END DO
+    END DO
+    ! handling offsets like set_cpml_helpers
+    
+    i = c_bd_x_min
+    IF (bc_field(i) == c_bc_cpml_laser &
+        .OR. bc_field(i) == c_bc_cpml_outflow) THEN
+
+      IF (nx_global_min <= cpml_thickness) THEN
+        IF (nx_global_max >= cpml_thickness) THEN
+          cpml_x_min_offset = cpml_thickness - nx_global_min + 1
+        ELSE
+          cpml_x_min_offset = cpml_thickness
+        END IF
+      END IF
+
+      ! Ghost cells start at the edge of the CPML boundary
+      IF (nx_global_min <= cpml_thickness + fng + 1 &
+          .AND. nx_global_max >= cpml_thickness + fng + 1) THEN
+        add_laser(i) = .TRUE.
+        cpml_x_min_laser_idx = cpml_thickness + fng + 1 - nx_global_min
+      END IF
+    END IF
+
+    i = c_bd_x_max
+    IF (bc_field(i) == c_bc_cpml_laser &
+        .OR. bc_field(i) == c_bc_cpml_outflow) THEN
+
+      IF (nx_global_max >= nx_global - cpml_thickness + 1) THEN
+        IF (nx_global_min <= nx_global - cpml_thickness + 1) THEN
+          cpml_x_max_offset = cpml_thickness - nx_global + nx_global_max
+        ELSE
+          cpml_x_max_offset = cpml_thickness
+        END IF
+      END IF
+
+      ! Ghost cells start at the edge of the CPML boundary
+      IF (nx_global_min <= nx_global - cpml_thickness - fng + 2 &
+          .AND. nx_global_max >= nx_global - cpml_thickness - fng + 2) THEN
+        add_laser(i) = .TRUE.
+        cpml_x_max_laser_idx = &
+            nx_global - cpml_thickness - fng + 2 - nx_global_min
+      END IF
+    END IF
+
+    i = c_bd_y_min
+    IF (bc_field(i) == c_bc_cpml_laser &
+        .OR. bc_field(i) == c_bc_cpml_outflow) THEN
+
+      IF (ny_global_min <= cpml_thickness) THEN
+        IF (ny_global_max >= cpml_thickness) THEN
+          cpml_y_min_offset = cpml_thickness - ny_global_min + 1
+        ELSE
+          cpml_y_min_offset = cpml_thickness
+        END IF
+      END IF
+
+      ! Ghost cells start at the edge of the CPML boundary
+      IF (ny_global_min <= cpml_thickness + fng + 1 &
+          .AND. ny_global_max >= cpml_thickness + fng + 1) THEN
+        add_laser(i) = .TRUE.
+        cpml_y_min_laser_idx = cpml_thickness + fng + 1 - ny_global_min
+      END IF
+    END IF
+
+    i = c_bd_y_max
+    IF (bc_field(i) == c_bc_cpml_laser &
+        .OR. bc_field(i) == c_bc_cpml_outflow) THEN
+
+      IF (ny_global_max >= ny_global - cpml_thickness + 1) THEN
+        IF (ny_global_min <= ny_global - cpml_thickness + 1) THEN
+          cpml_y_max_offset = cpml_thickness - ny_global + ny_global_max
+        ELSE
+          cpml_y_max_offset = cpml_thickness
+        END IF
+      END IF
+
+      ! Ghost cells start at the edge of the CPML boundary
+      IF (ny_global_min <= ny_global - cpml_thickness - fng + 2 &
+          .AND. ny_global_max >= ny_global - cpml_thickness - fng + 2) THEN
+        add_laser(i) = .TRUE.
+        cpml_y_max_laser_idx = &
+            ny_global - cpml_thickness - fng + 2 - ny_global_min
+      END IF
+    END IF
+
+    i = c_bd_z_min
+    IF (bc_field(i) == c_bc_cpml_laser &
+        .OR. bc_field(i) == c_bc_cpml_outflow) THEN
+
+      IF (nz_global_min <= cpml_thickness) THEN
+        IF (nz_global_max >= cpml_thickness) THEN
+          cpml_z_min_offset = cpml_thickness - nz_global_min + 1
+        ELSE
+          cpml_z_min_offset = cpml_thickness
+        END IF
+      END IF
+
+      ! Ghost cells start at the edge of the CPML boundary
+      IF (nz_global_min <= cpml_thickness + fng + 1 &
+          .AND. nz_global_max >= cpml_thickness + fng + 1) THEN
+        add_laser(i) = .TRUE.
+        cpml_z_min_laser_idx = cpml_thickness + fng + 1 - nz_global_min
+      END IF
+    END IF
+
+    i = c_bd_z_max
+    IF (bc_field(i) == c_bc_cpml_laser &
+        .OR. bc_field(i) == c_bc_cpml_outflow) THEN
+
+      IF (nz_global_max >= nz_global - cpml_thickness + 1) THEN
+        IF (nz_global_min <= nz_global - cpml_thickness + 1) THEN
+          cpml_z_max_offset = cpml_thickness - nz_global + nz_global_max
+        ELSE
+          cpml_z_max_offset = cpml_thickness
+        END IF
+      END IF
+
+      ! Ghost cells start at the edge of the CPML boundary
+      IF (nz_global_min <= nz_global - cpml_thickness - fng + 2 &
+          .AND. nz_global_max >= nz_global - cpml_thickness - fng + 2) THEN
+        add_laser(i) = .TRUE.
+        cpml_z_max_laser_idx = &
+            nz_global - cpml_thickness - fng + 2 - nz_global_min
+      END IF
+    END IF
+
+    x_min_local = x_grid_min_local + (cpml_x_min_offset - 0.5_num) * dx
+    x_max_local = x_grid_max_local - (cpml_x_max_offset - 0.5_num) * dx
+    y_min_local = y_grid_min_local + (cpml_y_min_offset - 0.5_num) * dy
+    y_max_local = y_grid_max_local - (cpml_y_max_offset - 0.5_num) * dy
+    z_min_local = z_grid_min_local + (cpml_z_min_offset - 0.5_num) * dz
+    z_max_local = z_grid_max_local - (cpml_z_max_offset - 0.5_num) * dz
+
+  END SUBROUTINE prep_newpml_helpers
+  
+#endif!NEWPML
+  
 
   SUBROUTINE deallocate_cpml_helpers
 

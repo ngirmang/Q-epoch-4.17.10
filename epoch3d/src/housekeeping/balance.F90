@@ -730,6 +730,15 @@ CONTAINS
       CALL set_cpml_helpers(nx_new, new_domain(1,1), new_domain(1,2), &
           ny_new, new_domain(2,1), new_domain(2,2), &
           nz_new, new_domain(3,1), new_domain(3,2))
+      
+#ifdef NEWPML
+    ELSE IF (use_newpml) THEN
+      DEALLOCATE(pml_inv, pml_eye)
+      CALL prep_newpml_helpers(nx, nx_global_min, nx_global_max, &
+          ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
+      CALL set_newpml
+      
+#endif!NEWPML
     END IF
 
     DEALLOCATE(temp)

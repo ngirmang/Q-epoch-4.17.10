@@ -185,7 +185,7 @@ DEFINES := $(DEFINE)
 DEFINES += $(D)BOUND_HARMONIC $(D)PARTICLE_ID $(D)WINDOW_NO_EXTRA $(D)CONSTEPS
 DEFINES += $(D)SIMPLE_ADK
 DEFINES += $(D)FASTBCS
-DEFINES += $(D)PERFMON
+DEFINES += $(D)NEWPML
 #DEFINES += $(D)PARTICLE_ID4 $(D)PARTICLE_SHAPE_TOPHAT
 # end added
 
@@ -316,7 +316,7 @@ FC_INFO := $(shell ${FC} --version 2>/dev/null \
 
 SRCFILES = balance.F90 boundary.F90 bremsstrahlung.F90 calc_df.F90 \
   collisions.F90 constants.F90 current_smooth.F90 custom_deck.f90 \
-  custom_laser.f90 custom_parser.f90 deck.F90 deck_boundaries_block.f90 \
+  custom_laser.f90 custom_parser.f90 deck.F90 deck_boundaries_block.F90 \
   deck_bremsstrahlung_block.F90 deck_collision_block.F90 \
   deck_constant_block.f90 deck_control_block.F90 deck_dist_fn_block.f90 \
   deck_fields_block.F90 deck_injector_block.f90 deck_io_block.F90 \
@@ -473,7 +473,7 @@ deck.o: deck.F90 bremsstrahlung.o custom_deck.o deck_boundaries_block.o \
   deck_qed_block.o deck_species_block.o deck_stencil_block.o \
   deck_subset_block.o deck_window_block.o photons.o strings.o utilities.o \
   version_data.o $(SDFMOD)
-deck_boundaries_block.o: deck_boundaries_block.f90 strings_advanced.o \
+deck_boundaries_block.o: deck_boundaries_block.F90 strings_advanced.o \
   utilities.o
 deck_bremsstrahlung_block.o: deck_bremsstrahlung_block.F90 strings_advanced.o \
   utilities.o

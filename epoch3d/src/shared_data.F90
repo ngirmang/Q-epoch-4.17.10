@@ -468,6 +468,12 @@ MODULE shared_data
 #ifdef CONSTEPS
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: iepsx, iepsy, iepsz
 #endif
+#ifdef NEWPML
+  REAL(num) pml_thickness_real
+  REAL(num) :: newpml_coeff_a = 0.d0, newpml_coeff_m = 0.d0
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: pml_inv, pml_eye, pml_sig
+  LOGICAL  use_newpml, use_manualpml
+#endif!NEWPML
   !----------------------------------------------------------------------------
   ! Core code
   !----------------------------------------------------------------------------

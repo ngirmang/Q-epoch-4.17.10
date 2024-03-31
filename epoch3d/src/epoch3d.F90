@@ -55,7 +55,10 @@ PROGRAM pic
 #ifdef BREMSSTRAHLUNG
   USE bremsstrahlung
 #endif
-
+#ifdef NEWPML
+  USE boundary
+#endif
+  
   IMPLICIT NONE
 
   INTEGER :: ispecies, ierr
@@ -126,6 +129,10 @@ PROGRAM pic
   CALL initialise_window ! window.f90
   CALL set_dt
   CALL set_maxwell_solver
+#ifdef NEWPML
+  !curse this
+  CALL set_newpml
+#endif
 #ifdef PERFMON
   CALL timer_perf_init
 #endif

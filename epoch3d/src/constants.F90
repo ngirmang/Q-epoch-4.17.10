@@ -69,7 +69,11 @@ MODULE constants
   INTEGER, PARAMETER :: c_bc_cpml_outflow = 13
   INTEGER, PARAMETER :: c_bc_mixed = 14
   INTEGER, PARAMETER :: c_bc_heat_bath = 15
-
+#ifdef NEWPML
+  INTEGER, PARAMETER :: c_bc_newpml_laser = 16
+  INTEGER, PARAMETER :: c_bc_newpml_outflow = 17
+#endif!NEWPML
+  
   ! Boundary location codes
   INTEGER, PARAMETER :: c_bd_x_min = 1
   INTEGER, PARAMETER :: c_bd_x_max = 2

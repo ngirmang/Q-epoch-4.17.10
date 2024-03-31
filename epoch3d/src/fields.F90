@@ -19,6 +19,9 @@ MODULE fields
 #ifdef PERFMON
   USE timer
 #endif
+#ifdef NEWPML
+  USE utilities
+#endif
 
   IMPLICIT NONE
 
@@ -194,7 +197,13 @@ CONTAINS
 #ifdef CONSTEPS
     REAL(num) :: ciex, ciey, ciez
 #endif
-    
+
+#ifdef NEWPML
+    IF (use_newpml) THEN
+      CALL update_e_field_newpml
+      RETURN
+    END IF
+#endif
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
         DO iz = 0, nz
@@ -470,7 +479,55 @@ CONTAINS
 
   END SUBROUTINE update_e_field
 
+#ifdef NEWPML
+  SUBROUTINE update_e_field_newpml
 
+    INTEGER :: ix, iy, iz
+    REAL(num) :: ciex, ciey, ciez
+    REAL(num) :: ceye, cinv
+
+#ifndef CONSTEPS
+    PRINT '(A)', "NEWPML requires CONSTEPS"
+    CALL abort_code(c_err_bad_setup)
+#endif!CONSTEPS
+
+    IF (field_order /= 2) THEN
+      PRINT '(A)', "NEWPML is only implemented for yee, field_order == 2"
+      CALL abort_code(c_err_bad_setup)
+    END IF
+    
+    DO iz = 0, nz
+    DO iy = 0, ny
+    DO ix = 0, nx
+
+      ceye = pml_eye(ix,iy,iz)
+      cinv = pml_inv(ix,iy,iz)
+
+      ciex = iepsx(ix,iy,iz)*cinv
+      ciey = iepsy(ix,iy,iz)*cinv
+      ciez = iepsz(ix,iy,iz)*cinv
+      
+      ex(ix, iy, iz) = ex(ix, iy, iz)*ceye &
+          + ciex * cny * (bz(ix  , iy  , iz  ) - bz(ix  , iy-1, iz  )) &
+          - ciex * cnz * (by(ix  , iy  , iz  ) - by(ix  , iy  , iz-1)) &
+          - ciex * fac * jx(ix, iy, iz)
+
+      ey(ix, iy, iz) = ey(ix, iy, iz)*ceye &
+          + ciey * cnz * (bx(ix  , iy  , iz  ) - bx(ix  , iy  , iz-1)) &
+          - ciey * cnx * (bz(ix  , iy  , iz  ) - bz(ix-1, iy  , iz  )) &
+          - ciey * fac * jy(ix, iy, iz)
+
+      ez(ix, iy, iz) = ez(ix, iy, iz)*ceye &
+          + ciez * cnx * (by(ix  , iy  , iz  ) - by(ix-1, iy  , iz  )) &
+          - ciez * cny * (bx(ix  , iy  , iz  ) - bx(ix  , iy-1, iz  )) &
+          - ciez * fac * jz(ix, iy, iz)
+    END DO
+    END DO
+    END DO
+
+  END SUBROUTINE update_e_field_newpml
+#endif!NEWPML
+  
 
   SUBROUTINE update_b_field
 
@@ -481,6 +538,13 @@ CONTAINS
     REAL(num) :: cy1, cy2, cy3
     REAL(num) :: cz1, cz2, cz3
 
+#ifdef NEWPML
+    IF (use_newpml) THEN
+      CALL update_b_field_newpml
+      RETURN
+    END IF
+    
+#endif
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
         IF (maxwell_solver == c_maxwell_solver_yee) THEN
@@ -860,7 +924,54 @@ CONTAINS
     END IF
 
   END SUBROUTINE update_b_field
+#ifdef NEWPML
+  
+  SUBROUTINE update_b_field_newpml
 
+    INTEGER :: ix, iy, iz
+    REAL(num) :: c1, c2, c3
+    REAL(num) :: cimx, cimy, cimz
+    REAL(num) :: ceye, cinv
+
+    !never say never
+    cimx = 1.0_num
+    cimy = 1.0_num
+    cimz = 1.0_num
+#ifndef CONSTEPS
+    PRINT '(A)', "NEWPML requires CONSTEPS"
+    CALL abort_code(c_err_bad_setup)
+#endif!CONSTEPS
+
+    IF (field_order /= 2 &
+         .OR. maxwell_solver /= c_maxwell_solver_yee) THEN
+      PRINT '(A)', "NEWPML is only implemented for yee, field_order == 2"
+      CALL abort_code(c_err_bad_setup)
+    END IF
+    
+    DO iz = 0, nz
+    DO iy = 0, ny
+    DO ix = 0, nx
+
+      ceye = pml_eye(ix,iy,iz)
+      cinv = pml_inv(ix,iy,iz)
+      
+      bx(ix, iy, iz) = bx(ix, iy, iz)*ceye &
+          - cimx * hdty * (ez(ix  , iy+1, iz  ) - ez(ix  , iy  , iz  )) &
+          + cimx * hdtz * (ey(ix  , iy  , iz+1) - ey(ix  , iy  , iz  ))
+
+      by(ix, iy, iz) = by(ix, iy, iz)*ceye &
+          - cimy * hdtz * (ex(ix  , iy  , iz+1) - ex(ix  , iy  , iz  )) &
+          + cimy * hdtx * (ez(ix+1, iy  , iz  ) - ez(ix  , iy  , iz  ))
+
+      bz(ix, iy, iz) = bz(ix, iy, iz)*ceye &
+          - cimz * hdtx * (ey(ix+1, iy  , iz  ) - ey(ix  , iy  , iz  )) &
+          + cimz * hdty * (ex(ix  , iy+1, iz  ) - ex(ix  , iy  , iz  ))
+    END DO
+    END DO
+    END DO
+
+  END SUBROUTINE update_b_field_newpml
+#endif!NEWPML
 
 
   SUBROUTINE update_eb_fields_half
