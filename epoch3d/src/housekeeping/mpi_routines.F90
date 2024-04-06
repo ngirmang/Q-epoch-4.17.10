@@ -399,7 +399,7 @@ CONTAINS
 
 #ifdef NEWPML
     IF (.NOT.(cpml_boundaries .OR. use_newpml)) &
-         cpml_thickness = 0
+         cpml_thicknesses = 0
 #else
     IF (.NOT.cpml_boundaries) cpml_thickness = 0
 #endif
@@ -414,10 +414,15 @@ CONTAINS
     ALLOCATE(cell_y_min(nprocy), cell_y_max(nprocy))
     ALLOCATE(cell_z_min(nprocz), cell_z_max(nprocz))
 
+#ifndef NEWPML
     nx_global = nx_global + 2 * cpml_thickness
     ny_global = ny_global + 2 * cpml_thickness
     nz_global = nz_global + 2 * cpml_thickness
-
+#else
+    nx_global = nx_global + cpml_thicknesses(1) + cpml_thicknesses(2)
+    ny_global = ny_global + cpml_thicknesses(3) + cpml_thicknesses(4)
+    nz_global = nz_global + cpml_thicknesses(5) + cpml_thicknesses(6)
+#endif
     IF (use_exact_restart) THEN
       old_x_max(nprocx) = nx_global
       cell_x_max = old_x_max

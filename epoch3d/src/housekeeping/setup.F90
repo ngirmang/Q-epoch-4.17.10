@@ -79,7 +79,11 @@ CONTAINS
     dt_plasma_frequency = 0.0_num
     dt_multiplier = 0.95_num
     stdout_frequency = 0
+#ifdef NEWPML
+    cpml_thicknesses = 0
+#else
     cpml_thickness = 6
+#endif
     cpml_kappa_max = 20.0_num
     cpml_a_max = 0.15_num
     cpml_sigma_max = 0.7_num
@@ -176,6 +180,7 @@ CONTAINS
     INTEGER :: ix, iy, iz
     REAL(num) :: xb_min, yb_min, zb_min
 
+#ifndef NEWPML
     length_x = x_max - x_min
     dx = length_x / REAL(nx_global-2*cpml_thickness, num)
     x_grid_min = x_min - dx * cpml_thickness
@@ -187,6 +192,20 @@ CONTAINS
     length_z = z_max - z_min
     dz = length_z / REAL(nz_global-2*cpml_thickness, num)
     z_grid_min = z_min - dz * cpml_thickness
+#else
+    length_x = x_max - x_min
+    dx = length_x / REAL(nx_global-cpml_thicknesses(1)-cpml_thicknesses(2), num)
+    x_grid_min = x_min - dx * cpml_thicknesses(1)
+
+    length_y = y_max - y_min
+    dy = length_y / REAL(ny_global-cpml_thicknesses(3)-cpml_thicknesses(4), num)
+    y_grid_min = y_min - dy * cpml_thicknesses(3)
+
+    length_z = z_max - z_min
+    dz = length_z / REAL(nz_global-cpml_thicknesses(5)-cpml_thicknesses(6), num)
+    z_grid_min = z_min - dz * cpml_thicknesses(5)
+    
+#endif
 
     ! Shift grid to cell centres.
     ! At some point the grid may be redefined to be node centred.
@@ -276,7 +295,11 @@ CONTAINS
       END DO
 #endif!NEWPML
     ELSE
+#ifdef NEWPML
+      cpml_thicknesses=0
+#else
       cpml_thickness = 0
+#endif
       cpml_kappa_max = 1.0_num
       cpml_a_max = 0.0_num
       cpml_sigma_max = 0.0_num
@@ -1295,7 +1318,7 @@ CONTAINS
             y_max = extents(c_ndims+2)
             z_min = extents(3)
             z_max = extents(c_ndims+3)
-
+#ifndef NEWPML
             dx = (x_max - x_min) / nx_global
             x_min = x_min + dx * cpml_thickness
             x_max = x_max - dx * cpml_thickness
@@ -1305,7 +1328,18 @@ CONTAINS
             dz = (z_max - z_min) / nz_global
             z_min = z_min + dz * cpml_thickness
             z_max = z_max - dz * cpml_thickness
-
+#else
+            dx = (x_max - x_min) / nx_global
+            x_min = x_min + dx * cpml_thicknesses(1)
+            x_max = x_max - dx * cpml_thicknesses(2)
+            dy = (y_max - y_min) / ny_global
+            y_min = y_min + dy * cpml_thicknesses(3)
+            y_max = y_max - dy * cpml_thicknesses(4)
+            dz = (z_max - z_min) / nz_global
+            z_min = z_min + dz * cpml_thicknesses(5)
+            z_max = z_max - dz * cpml_thicknesses(6)
+#endif
+            
             IF (str_cmp(block_id, 'grid_full')) THEN
               got_full = .TRUE.
               use_offset_grid = .TRUE.

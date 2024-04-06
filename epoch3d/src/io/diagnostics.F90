@@ -504,9 +504,23 @@ CONTAINS
           c_stagger_jz, jz)
 
       IF (cpml_boundaries) THEN
+#ifndef NEWPML
         CALL sdf_write_srl(sdf_handle, 'boundary_thickness', &
             'Boundary thickness', cpml_thickness)
-
+#else
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_xmin', &
+            'Boundary thickness x_min', cpml_thicknesses(1))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_xmax', &
+            'Boundary thickness x_max', cpml_thicknesses(2))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_ymin', &
+            'Boundary thickness y_min', cpml_thicknesses(3))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_ymax', &
+            'Boundary thickness y_max', cpml_thicknesses(4))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_zmin', &
+            'Boundary thickness z_min', cpml_thicknesses(5))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_zmax', &
+            'Boundary thickness z_max', cpml_thicknesses(6))
+#endif
         CALL write_field(c_dump_cpml_psi_eyx, code, 'cpml_psi_eyx', &
             'CPML/Ey_x', 'A/m^2', c_stagger_cell_centre, cpml_psi_eyx)
         CALL write_field(c_dump_cpml_psi_ezx, code, 'cpml_psi_ezx', &

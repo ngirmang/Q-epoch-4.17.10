@@ -73,7 +73,11 @@ CONTAINS
       ! Shift the box around
       x_grid_min = x_global(1) + dx
       xb_min = xb_global(1) + dx
+#ifndef NEWPML
       x_min = xb_min + dx * cpml_thickness
+#else
+      x_min = xb_min + dx * cpml_thicknesses(1)
+#endif
 
       ! Setup global grid
       DO ix = 1-ng, nx_global + ng
@@ -81,7 +85,11 @@ CONTAINS
         xb_global(ix) = xb_min + (ix - 1) * dx
       END DO
       x_grid_max = x_global(nx_global)
+#ifndef NEWPML
       x_max = xb_global(nx_global+1) - dx * cpml_thickness
+#else
+      x_max = xb_global(nx_global+1) - dx * cpml_thicknesses(2)
+#endif
 
       CALL setup_grid_x
 

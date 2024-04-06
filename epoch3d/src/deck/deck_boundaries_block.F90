@@ -150,8 +150,32 @@ CONTAINS
         .OR. str_cmp(element, 'zbc_front_particle')) THEN
       bc_particle(c_bd_z_max) = as_bc_print(value, element, errcode)
 
+#ifndef NEWPML
     ELSE IF (str_cmp(element, 'cpml_thickness')) THEN
       cpml_thickness = as_integer_print(value, element, errcode)
+#else
+    ELSE IF (str_cmp(element, 'cpml_thickness')) THEN
+      cpml_thicknesses(:) = as_integer_print(value, element, errcode)
+      
+    ELSE IF (str_cmp(element, 'cpml_x_min')) THEN
+      cpml_thicknesses(1) = as_integer_print(value, element, errcode)
+      
+    ELSE IF (str_cmp(element, 'cpml_x_max')) THEN
+      cpml_thicknesses(2) = as_integer_print(value, element, errcode)
+      
+    ELSE IF (str_cmp(element, 'cpml_y_min')) THEN
+      cpml_thicknesses(3) = as_integer_print(value, element, errcode)
+      
+    ELSE IF (str_cmp(element, 'cpml_y_max')) THEN
+      cpml_thicknesses(4) = as_integer_print(value, element, errcode)
+      
+    ELSE IF (str_cmp(element, 'cpml_z_min')) THEN
+      cpml_thicknesses(5) = as_integer_print(value, element, errcode)
+      
+    ELSE IF (str_cmp(element, 'cpml_z_max')) THEN
+      cpml_thicknesses(6) = as_integer_print(value, element, errcode)
+      
+#endif
 
     ELSE IF (str_cmp(element, 'cpml_kappa_max')) THEN
       cpml_kappa_max = as_real_print(value, element, errcode)
@@ -163,10 +187,8 @@ CONTAINS
       cpml_sigma_max = as_real_print(value, element, errcode)
 
 #ifdef NEWPML
-    ELSE IF (str_cmp(element, 'use_manual_pml')) THEN
-      use_manual_pml = as_logical_print(value, element, errcode)
 
-    ELSE IF (str_cmp(element, 'use_newpml1')) THEN
+    ELSE IF (str_cmp(element, 'use_newpml')) THEN
       use_newpml = as_logical_print(value, element, errcode)
       
     ELSE IF (str_cmp(element, 'newpml_coeff_a')) THEN

@@ -733,9 +733,14 @@ CONTAINS
       
 #ifdef NEWPML
     ELSE IF (use_newpml) THEN
-      DEALLOCATE(pml_inv, pml_eye)
-      CALL prep_newpml_helpers(nx, nx_global_min, nx_global_max, &
-          ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
+      IF (rank == 0) THEN
+        PRINT "(A)", "calling from balance.F90"
+        PRINT "(A,I4)", "size(x)= ", size(x)
+      END IF
+      IF (ALLOCATED(pml_inv)) DEALLOCATE(pml_inv, pml_eye, pml_sig)
+      CALL prep_newpml_helpers(nx_new, new_domain(1,1), new_domain(1,2), &
+          ny_new, new_domain(2,1), new_domain(2,2), &
+          nz_new, new_domain(3,1), new_domain(3,2))
       CALL set_newpml
       
 #endif!NEWPML

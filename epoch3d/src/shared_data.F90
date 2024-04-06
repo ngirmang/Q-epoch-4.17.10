@@ -432,7 +432,11 @@ MODULE shared_data
   END TYPE particle_probe
 #endif
 
+#ifndef NEWPML
   INTEGER :: cpml_thickness
+#else
+  INTEGER :: cpml_thicknesses(6)
+#endif
   INTEGER :: cpml_x_min_start, cpml_x_min_end, cpml_x_min_offset
   INTEGER :: cpml_x_max_start, cpml_x_max_end, cpml_x_max_offset
   INTEGER :: cpml_y_min_start, cpml_y_min_end, cpml_y_min_offset
@@ -469,10 +473,11 @@ MODULE shared_data
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: iepsx, iepsy, iepsz
 #endif
 #ifdef NEWPML
-  REAL(num) pml_thickness_real
+  REAL(num) pml_thickness_real(6)
   REAL(num) :: newpml_coeff_a = 0.d0, newpml_coeff_m = 0.d0
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: pml_inv, pml_eye, pml_sig
   LOGICAL  use_newpml, use_manualpml
+  LOGICAL :: floating_laser=.FALSE.
 #endif!NEWPML
   !----------------------------------------------------------------------------
   ! Core code
