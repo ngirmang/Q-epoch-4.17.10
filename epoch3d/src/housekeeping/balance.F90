@@ -468,6 +468,20 @@ CONTAINS
     CALL setup_grid_x
     CALL setup_grid_y
     CALL setup_grid_z
+#ifdef NEWPML
+    IF (use_newpml) THEN
+      IF (rank == 0) THEN
+        PRINT "(A)", "calling from balance.F90"
+        PRINT "(A,I4)", "size(x)= ", size(x)
+      END IF
+      IF (ALLOCATED(pml_inv)) DEALLOCATE(pml_inv, pml_eye, pml_sig)
+      CALL prep_newpml_helpers(&
+          nx, nx_global_min, nx_global_max, &
+          ny, ny_global_min, ny_global_max, &
+          nz, nz_global_min, nz_global_max)
+      CALL set_newpml
+    END IF
+#endif!NEWPML
 
   END SUBROUTINE redistribute_domain
 
@@ -731,19 +745,6 @@ CONTAINS
           ny_new, new_domain(2,1), new_domain(2,2), &
           nz_new, new_domain(3,1), new_domain(3,2))
       
-#ifdef NEWPML
-    ELSE IF (use_newpml) THEN
-      IF (rank == 0) THEN
-        PRINT "(A)", "calling from balance.F90"
-        PRINT "(A,I4)", "size(x)= ", size(x)
-      END IF
-      IF (ALLOCATED(pml_inv)) DEALLOCATE(pml_inv, pml_eye, pml_sig)
-      CALL prep_newpml_helpers(nx_new, new_domain(1,1), new_domain(1,2), &
-          ny_new, new_domain(2,1), new_domain(2,2), &
-          nz_new, new_domain(3,1), new_domain(3,2))
-      CALL set_newpml
-      
-#endif!NEWPML
     END IF
 
     DEALLOCATE(temp)

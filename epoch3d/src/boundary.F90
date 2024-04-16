@@ -3116,13 +3116,7 @@ CONTAINS
     pml_eye = (1.0_num - pml_sig * dt / 2.0_num)&
             / (1.0_num + pml_sig * dt / 2.0_num)
 
-    IF (RANK==0) THEN
-      PRINT '(A,ES8.1)', "minval pml_inv=", MINVAL(pml_inv)
-      PRINT '(A,ES8.1)', "minval pml_eye=", MINVAL(pml_eye)
-      !PRINT '(A,ES8.1)', "x_min =", x_min
-      PRINT '(A,I5)',    "nx    =", nx
-      !PRINT '(A,ES8.1)', "maxval pml_sig=", MAXVAL(pml_sig)
-    ENDIF
+    PRINT '(A,I2,A,3I5)', "rank=",rank,') nx,ny,nz = ', nx,ny,nz
     PRINT '(A,I2,A,ES8.1,A,ES8.1)', "rank=",rank,') pml_sig: ',&
          MINVAL(pml_sig(1:nx,1:ny,1:nz)),'<->',MAXVAL(pml_sig(1:nx,1:ny,1:nz))
     PRINT '(A,I2,A,ES8.1)', 'rank=',rank,') x_min = ',x_min
