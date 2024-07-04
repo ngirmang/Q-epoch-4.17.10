@@ -222,6 +222,9 @@ PROGRAM pic
       IF (use_balance) CALL balance_workload(.FALSE.)
       
       CALL push_particles
+#ifdef BOUND_HARMONIC
+      CALL check_bound_particles
+#endif
       IF (use_particle_lists) THEN
         ! After this line, the particles can be accessed on a cell by cell basis
         ! Using the particle_species%secondary_list property

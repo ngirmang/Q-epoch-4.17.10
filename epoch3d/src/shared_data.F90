@@ -87,6 +87,9 @@ MODULE shared_data
 
 #ifdef BOUND_HARMONIC
 
+  ! bound_safe_factor sets the allowance of large oscillations of bound species
+  REAL(num) :: bound_safe_factor = 0.25 ! 4 cells ought to be enough for anyone
+  INTEGER :: check_bound_interval = 0
   ! redo pointer list here due to it being in particles
   ! some day we do this not by ugly hack, consolidate in a type of particle.
   TYPE bp_item

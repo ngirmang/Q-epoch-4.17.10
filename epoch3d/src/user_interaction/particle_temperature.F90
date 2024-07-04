@@ -158,7 +158,10 @@ CONTAINS
     CHARACTER(LEN=25) :: string
     INTEGER :: iu, io
 #include "particle_head.inc"
-
+!added
+    if (rank == 0 ) print '(A)', "called, yes"
+!end added
+    
     partlist => part_species%attached_list
     current => partlist%head
     ipart = 0

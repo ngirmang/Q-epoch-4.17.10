@@ -26,7 +26,7 @@ MODULE particles
   
   PRIVATE
   
-  PUBLIC :: push_particles, f0
+  PUBLIC :: push_particles, f0, check_bound_particles
 #if defined(PHOTONS) || defined(BREMSSTRAHLUNG)
   PUBLIC :: push_photons
 #endif !photons
@@ -189,9 +189,7 @@ CONTAINS
          dlx(3)         ! x, y, z of offset from binding centre
     REAL(num) :: bfield_factor
     REAL(num), DIMENSION(3,3) :: vm2vp, gminv
-    REAL(num) pre_part_pos(3), tmp(3), maxd(3)
-    REAL(num), parameter :: safe_factor = 2.0_num
-    maxd = (/dx, dy, dz/) / safe_factor
+    !REAL(num) pre_part_pos(3),tmp(3)
 #endif
 
     
@@ -318,10 +316,9 @@ CONTAINS
         part_ux = current%part_p(1) * ipart_mc
         part_uy = current%part_p(2) * ipart_mc
         part_uz = current%part_p(3) * ipart_mc
-#ifdef BOUND_HARMONIC
-        pre_part_pos = current%part_pos !added
-#endif
-        
+!#ifdef BOUND_HARMONIC
+!       pre_part_pos = current%part_pos        
+!#endif
         ! Calculate v(t) from p(t)
         ! See PSC manual page (25-27)
         gamma_rel = SQRT(part_ux**2 + part_uy**2 + part_uz**2 + 1.0_num)
@@ -335,21 +332,6 @@ CONTAINS
         ! should this also be at half step?
         dlx = current%part_pos - current%part_ip
         dlx = dlx + (/part_ux, part_uy, part_uz/)*root
-                  ! added...
-        IF ( part_weight > 0.0_num .AND. &
-             ANY(ABS(lomegasq_dto2c) > 0.0_num) .AND. &
-             ANY(ABS(dlx) > maxd)) THEN
-          PRINT '(a)', '***ERROR***'
-          PRINT '(a, 3ES13.5)', "dlx value large =", dlx
-          PRINT '(A, F4.1, A, 3ES13.5)', "for dxs/", safe_factor, " = ", maxd
-          PRINT '(a, a)', "  species = ", TRIM(species_list(ispecies)%name)
-          PRINT '(a, I4)', "  step = ", step
-          PRINT '(a, 3ES13.5)', "  ux,uy,uz= ", [part_ux, part_uy, part_uz]
-          PRINT '(a, 3ES13.5)', "  pre_part_pos=", pre_part_pos
-          PRINT '(a, 3ES13.5)', "  part_ip=", current%part_ip
-          PRINT '(a, 3ES13.5)', "  omega=", species_list(ispecies)%harmonic_omega
-          CALL abort_code(c_err_bad_value)
-        END IF
 #endif
         
 #ifdef WORK_DONE_INTEGRATED
@@ -628,36 +610,35 @@ CONTAINS
           dcelly = cell_y3 - cell_y1
           dcellz = cell_z3 - cell_z1
 #ifdef BOUND_HARMONIC
-          ! added...
-          tmp = current%part_pos - pre_part_pos
-          IF ( part_weight > 0.0_num .AND. &
-               ANY(ABS(lomegasq_dto2c) > 0.0_num) .AND. &
-               ANY(ABS(tmp) > maxd)) THEN
-            PRINT '(a)', '***ERROR***'
-            PRINT '(a, 3ES13.5)', "dpos value large = ", tmp
-            PRINT '(A, F4.1, A, 3ES13.5)', "for dxs/", safe_factor, " = ", maxd
-            PRINT '(a, a)', "  species = ", species_list(ispecies)%name
-            PRINT '(a, 3ES13.5)', "  pre_part_pos=", pre_part_pos
-            PRINT '(a, 3ES13.5)', "  part_pos=", current%part_pos
-            PRINT '(a, 3ES13.5)', "  part_ip=", current%part_ip
-            PRINT '(a, 3ES13.5)', "  upvec=", upvec
-            PRINT '(a, 3ES13.5)', "  dlx=", dlx
-            PRINT '(a, ES13.5)',  "  Bdotprod=", Bdotprod
-            CALL abort_code(c_err_bad_value)
-          END IF
-          IF (dcellx > 2 .OR. dcellx < -2) THEN
-            PRINT '(a)', '***ERROR***'
-            PRINT '(a)', "I've fallen, and I can't get up."
-            PRINT '(a,I14)', "dcellx = ", dcellx
-            PRINT '(a, 3ES13.5)', "pre_part_pos=", pre_part_pos
-            PRINT '(a, 3ES13.5)', "part_pos=", current%part_pos
-            PRINT '(a, 3ES13.5)', "part_ip=", current%part_ip
-            PRINT '(a, 3ES13.5)', "upvec=", upvec
-            PRINT '(a, 3ES13.5)', "dlx=", dlx
-            PRINT '(a, ES13.5)',  "Bdotprod=", Bdotprod
-            CALL abort_code(c_err_bad_value)
-          END IF
-          ! end added
+          ! tmp = current%part_pos - pre_part_pos
+          ! IF ( part_weight > 0.0_num .AND. &
+          !      ANY(ABS(lomegasq_dto2c) > 0.0_num) .AND. &
+          !      ANY(ABS(tmp) > maxd)) THEN
+          !   PRINT '(a)', '***ERROR***'
+          !   PRINT '(a, 3ES13.5)', "dpos value large = ", tmp
+          !   PRINT '(A, F4.1, A, 3ES13.5)', "for dxs/", safe_factor, " = ", maxd
+          !   PRINT '(a, a)', "  species = ", species_list(ispecies)%name
+          !   PRINT '(a, 3ES13.5)', "  pre_part_pos=", pre_part_pos
+          !   PRINT '(a, 3ES13.5)', "  part_pos=", current%part_pos
+          !   PRINT '(a, 3ES13.5)', "  part_ip=", current%part_ip
+          !   PRINT '(a, 3ES13.5)', "  upvec=", upvec
+          !   PRINT '(a, 3ES13.5)', "  dlx=", dlx
+          !   PRINT '(a, ES13.5)',  "  Bdotprod=", Bdotprod
+          !   CALL abort_code(c_err_bad_value)
+          ! END IF
+          ! IF (dcellx > 2 .OR. dcellx < -2) THEN
+          !   PRINT '(a)', '***ERROR***'
+          !   PRINT '(a)', "I've fallen, and I can't get up."
+          !   PRINT '(A)', "abs(dcellx) is larger than 2 cells!!!1"
+          !   PRINT '(a,I14)', "dcellx = ", dcellx
+          !   PRINT '(a, 3ES13.5)', "pre_part_pos=", pre_part_pos
+          !   PRINT '(a, 3ES13.5)', "part_pos=", current%part_pos
+          !   PRINT '(a, 3ES13.5)', "part_ip=", current%part_ip
+          !   PRINT '(a, 3ES13.5)', "upvec=", upvec
+          !   PRINT '(a, 3ES13.5)', "dlx=", dlx
+          !   PRINT '(a, ES13.5)',  "Bdotprod=", Bdotprod
+          !   CALL abort_code(c_err_bad_value)
+          ! END IF
 #endif
           ! NOTE: These weights require an additional multiplication factor!
 #ifdef PARTICLE_SHAPE_BSPLINE3
@@ -784,7 +765,60 @@ CONTAINS
 
   END SUBROUTINE push_particles
 
+#ifdef BOUND_HARMONIC
+  SUBROUTINE check_bound_particles
+    INTEGER ispecies,ipart
+    TYPE(particle), POINTER :: current
+    REAL(num), DIMENSION(3) :: omega, gamma, dlx, part_u, maxd
+    REAL(num) part_m
 
+    IF (check_bound_interval == 0 &
+        .OR. MOD(step, check_bound_interval) > 0) RETURN
+    IF (rank == 0) PRINT "(A,I6.6)", "checking bound at step = ", step
+    
+    maxd = (/dx, dy, dz/) / bound_safe_factor
+
+    DO ispecies = 1, n_species
+      omega = species_list(ispecies)%harmonic_omega
+      gamma = species_list(ispecies)%harmonic_gamma
+#ifndef PER_PARTICLE_CHARGE_MASS
+      part_m   = species_list(ispecies)%mass
+#endif
+      IF (ALL(omega == 0.0_num)) CYCLE
+      current => species_list(ispecies)%attached_list%head
+
+      DO ipart = 1, species_list(ispecies)%attached_list%count
+        IF (current%weight == 0.0_num) THEN
+          current => current%next
+          CYCLE
+        END IF
+#ifdef PER_PARTICLE_CHARGE_MASS
+        part_m = current%mass
+#endif
+        dlx = current%part_pos - current%part_ip
+        
+        IF (ANY(ABS(dlx) > maxd)) THEN
+          part_u = current%part_p / (part_m * c)
+          PRINT '(a)', '***ERROR***'
+          PRINT '(a, 3ES13.5)', "dlx value large =", dlx
+          PRINT '(A, F5.2, A, 3ES13.5)', "for dxs/", bound_safe_factor, &
+               " = ", maxd
+          PRINT '(A, I3)',"  rank = ", rank
+          PRINT '(a, a)', "  species = ", TRIM(species_list(ispecies)%name)
+          PRINT '(a, I4)', "  step = ", step
+          PRINT '(a, 3ES13.5)', "  ux,uy,uz= ", part_u
+          PRINT '(a, 3ES13.5)', "  part_pos=", current%part_pos
+          PRINT '(a, 3ES13.5)', "  part_ip=", current%part_ip
+          PRINT '(a, 3ES13.5)', "  omega=", omega
+          PRINT '(a, 3ES13.5)', "  gamma=", gamma
+          CALL abort_code(c_err_bad_value)
+        END IF
+        current => current%next
+      END DO
+    END DO
+  END SUBROUTINE check_bound_particles
+#endif
+  
 
   ! Background distribution function used for delta-f calculations.
   ! Specialise to a drifting (tri)-Maxwellian to simplify and ensure

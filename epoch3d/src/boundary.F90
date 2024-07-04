@@ -2141,6 +2141,14 @@ CONTAINS
             izp = -iz
             CALL partlist_sendrecv(send(ix, iy, iz), recv(ixp, iyp, izp), &
                 neighbour(ix, iy, iz), neighbour(ixp, iyp, izp))
+#ifdef BOUND_HARMONIC
+            ! warn about unbound partners
+            IF (ASSOCIATED(species_list(ispecies)%bound_to) &
+                 .AND. recv(ixp,iyp,izp)%count > 0) &
+                PRINT "(A,I3,A,A)", "WARNING: rank=",rank,&
+                      " recieved particles that have bound partners, species=",&
+                      TRIM(species_list(ispecies)%name)
+#endif
             CALL append_partlist(species_list(ispecies)%attached_list, &
                 recv(ixp, iyp, izp))
           END DO

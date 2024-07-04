@@ -203,13 +203,13 @@ DEFINES += $(D)NEWPML
 # WARNING: These particles may not behave in the way you might expect. See the
 # documentation for further details. This flag will be renamed to
 # ZERO_CURRENT_PARTICLES in version 5.0
-#DEFINES += $(D)NO_TRACER_PARTICLES
+DEFINES += $(D)NO_TRACER_PARTICLES
 
 # Don't enable support for particle probes (in order to make the particle
 # push slightly faster).
 # Particle probes are diagnostics which gather information on particles which
 # cross a plane in the simulation.
-#DEFINES += $(D)NO_PARTICLE_PROBES
+DEFINES += $(D)NO_PARTICLE_PROBES
 
 # Use second order particle weighting (default is third order).
 #DEFINES += $(D)PARTICLE_SHAPE_TOPHAT
