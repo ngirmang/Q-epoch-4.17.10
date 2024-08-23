@@ -711,6 +711,15 @@ CONTAINS
         CALL write_particle_variable(c_dump_part_work_z_total, code, &
             'Time_Integrated_Work_z', 'J', it_output_real)
 #endif
+#ifdef BOUND_HARMONIC
+        CALL write_particle_variable(c_dump_part_ix, code, &
+             "ix", 'm', it_output_real)
+        CALL write_particle_variable(c_dump_part_iy, code, &
+             "iy", 'm', it_output_real)
+        CALL write_particle_variable(c_dump_part_iz, code, &
+             "iz", 'm', it_output_real)
+
+#endif
         CALL write_particle_grid(code)
 
         ! These are derived variables from the particles

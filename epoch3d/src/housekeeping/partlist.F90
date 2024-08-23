@@ -613,7 +613,7 @@ CONTAINS
     new_particle%part_ip = 0.0_num
 
     NULLIFY(new_particle%partners_head)
-#endif    
+#endif
 
   END SUBROUTINE init_particle
 

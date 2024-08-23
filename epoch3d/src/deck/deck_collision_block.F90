@@ -108,6 +108,9 @@ CONTAINS
 
     CHARACTER(*), INTENT(IN) :: element, value
     INTEGER :: errcode
+#ifdef COLL_ELECCHECK
+    INTEGER :: i
+#endif
 
     errcode = c_err_none
     IF (element == blank .OR. value == blank) RETURN
@@ -157,6 +160,34 @@ CONTAINS
       END IF
       RETURN
     END IF
+#ifdef COLL_ELECCHECK
+
+    IF (str_cmp(element, 'quick_check_electrons')) THEN
+      IF (deck_state == c_ds_first) THEN
+        quick_check_elec = as_logical_print(value, element, errcode)
+      ELSE IF (quick_check_elec) THEN
+        DO i=1,n_species
+          IF (species_list(i)%electron) THEN
+            IF (quick_check_ispecies /= -1) THEN
+              PRINT *, "*** ERROR ***"
+              PRINT *, "quick_check_electrons set with more than " &
+                 //  " one electron species"
+              errcode = c_err_bad_value
+              RETURN
+            END IF
+            quick_check_ispecies = i
+          END IF
+        END DO
+        IF (quick_check_ispecies == -1) THEN
+          PRINT *, "*** ERROR ***"
+          PRINT *, "quick_check_electrons set with no electrons?"
+          errcode = c_err_bad_value
+          RETURN
+        END IF
+      END IF
+      RETURN
+    END IF
+#endif
 
     errcode = c_err_unknown_element
 

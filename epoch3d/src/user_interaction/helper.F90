@@ -946,25 +946,29 @@ CONTAINS
     TYPE(bp_item), POINTER :: cur_bp, last
     INTEGER i, npartners
 
-    !PRINT '(a,I3,a,a)', "rank=",rank,&
-    !     " allocate_species_bp_lists: passed species ", species%name
     IF (.NOT. ASSOCIATED(species%bound_to)) RETURN
+#if !defined(PARTICLE_ID4) && !defined(PARTICLE_ID)
+    PRINT *, "***ERROR***"
+    PRINT *, "BOUND_HARMONIC with partners requires particle IDs"
+    call abort_code(c_err_bad_setup)
+#endif
+
     current => species%attached_list%head
     npartners = SIZE(species%bound_to)
     NULLIFY(cur_bp)
-
-    IF (rank == 0) PRINT '(a,a)', "allocating partners for species ", &
+    IF (rank == 0) PRINT '(a,I2,a,a)', &
+         "allocating ", npartners, " partner(s) for species ", &
          TRIM(species%name)
-    !IF (rank == 0) PRINT '(I2, a, 3I2, a)', npartners, " partners: [", &
-    !     species%bound_to, " ]"
     DO WHILE(ASSOCIATED(current))
       IF (.NOT. ASSOCIATED(current%partners_head)) THEN
         ALLOCATE(current%partners_head)
+
         cur_bp => current%partners_head
+
         DO i=1,npartners
           NULLIFY(cur_bp%next)
           NULLIFY(cur_bp%p)
-          IF (i /= npartners) ALLOCATE(cur_bp%next)
+          IF (i < npartners) ALLOCATE(cur_bp%next)
           cur_bp => cur_bp%next
         END DO
       END IF
@@ -973,26 +977,67 @@ CONTAINS
     IF (rank == 0) PRINT '(a,a)', "done for ", TRIM(species%name)
   END SUBROUTINE allocate_species_bp_lists
   
+  SUBROUTINE remove_bp_item(ion, bp)
+    TYPE(particle), POINTER, INTENT(IN) :: ion
+    TYPE(bp_item), POINTER, INTENT(IN)  :: bp
+    TYPE(bp_item), POINTER :: prev,cur
+
+    IF (.NOT. ASSOCIATED(ion%partners_head)) THEN
+      PRINT *, "warning: remove_bp_item on empty ion residue"
+      RETURN
+    END IF
+    IF (ASSOCIATED(ion%partners_head, TARGET=bp)) THEN
+      ion%partners_head => bp%next
+      RETURN
+    END IF
+
+    prev => ion%partners_head
+    cur  => cur%next
+    PRINT *, "warning: remove_bp_item beyond 1"
+    DO WHILE(ASSOCIATED(cur))
+      IF (ASSOCIATED(cur, TARGET=bp)) THEN
+        prev%next => cur%next
+        RETURN
+      END IF
+      prev => cur
+      cur  => cur%next
+    END DO
+    ! not found
+    PRINT *, "warning: remove_bp_item and bp is not found"
+  END SUBROUTINE remove_bp_item
+
+  FUNCTION pos_to_cell(r)
+    INTEGER pos_to_cell(3)
+    REAL(num), DIMENSION(3), INTENT(IN) :: r
+    REAL(num) dr(3)
+    dr = r - (/x_grid_min_local, y_grid_min_local, z_grid_min_local /)
+    dr = dr / (/dx,dy,dz/) + 0.5_num
+    pos_to_cell = FLOOR(dr)
+  END FUNCTION pos_to_cell
+
   SUBROUTINE associate_partners(species,check)
 
-    TYPE(particle_species), INTENT(IN) :: species
+    TYPE(particle_species), POINTER, INTENT(IN) :: species
     LOGICAL, INTENT(IN), OPTIONAL :: check
     TYPE(particle_species), POINTER :: partner_species
     TYPE(particle), POINTER :: current, partner
     TYPE(bp_item), POINTER :: cur_bp
-    INTEGER i, j, npartners, npcount
+    INTEGER i, j, k, npartners, npcount, ncount
+    INTEGER iPI
     LOGICAL dumped, docheck
-    REAL(num) dr(3), dls(3)
-
-
+    INTEGER I0(3), I1(3)
+    !REAL(num) dr(3), dls(3
+    !INTEGER, ALLOCATABLE :: PIs(:,:)
     dumped = .FALSE.
     docheck = .FALSE.
     IF (PRESENT(check)) docheck = check
     IF (.NOT. ASSOCIATED(species%bound_to)) RETURN
-    dls = (/ dx, dy, dz /) / 2
+
     NULLIFY(partner_species, current, partner, cur_bp)
     npartners = SIZE(species%bound_to)
-
+    IF (npartners > 1) THEN
+      PRINT "(A)", "use more than one partner diminishment with caution"
+    END IF
     IF (rank == 0) PRINT '(a,a)', "associating partners for species ", &
          TRIM(species%name)
     !IF (rank == 0) PRINT '(I2, a, 3I2, a)', npartners, " partners: [", &
@@ -1000,30 +1045,44 @@ CONTAINS
     ! this is flipped, in order to take advantage of the fact
     ! that while this should be O(n^2) search, the particles should line up
     ! in their respective linked lists given the same order of initialisation
+
     DO i=1,npartners
       partner_species => species_list(species%bound_to(i))
-      partner => partner_species%attached_list%head
       npcount = partner_species%attached_list%count
+      ncount  = species%attached_list%count
+
+      partner => partner_species%attached_list%head
       current => species%attached_list%head
       DO WHILE(ASSOCIATED(current))
+        I0 = pos_to_cell(current%part_pos)
         cur_bp => current%partners_head
         DO j=2,i
           cur_bp => cur_bp%next
         END DO
         NULLIFY(cur_bp%p)
+        cur_bp%species => partner_species
         
         partner_loop: DO j=1,npcount
-          dr = partner%part_pos - current%part_pos
-          IF ( ALL( ABS(dr) < dls ) ) THEN
+          I1 = pos_to_cell(partner%part_pos)
+          ! check cell
+          IF ( ALL( I0 == I1 ) ) THEN
             cur_bp%p => partner
-            partner  => partner%next
+            !partner  => partner%next
             EXIT partner_loop
-          ELSEIF (.NOT. dumped .AND. j > 1) THEN
-            PRINT '(a,I2,a)', "rank==",rank," exceeded 1 in search"
-          END IF
+          ENDIF
+          !ELSEIF (.NOT. dumped .AND. j > 1) THEN
+          !  PRINT '(a,I2,a)', "rank==",rank," exceeded 1 in search"
+          !  dumped = .TRUE.
+          !END IF
           partner => partner%next
-          IF (.NOT. ASSOCIATED(partner)) &
-               partner => partner_species%attached_list%head
+          IF (.NOT. ASSOCIATED(partner)) THEN
+            partner => partner_species%attached_list%head
+          ENDIF
+          I1 = pos_to_cell(partner%part_pos)
+          IF ( .NOT. dumped .AND. j > 2 ) THEN
+            PRINT '(a,I2,a)', "rank==",rank," exceeded 2 in search"
+            dumped = .TRUE.
+          END IF
         END DO partner_loop
         IF ( .NOT. ASSOCIATED(cur_bp%p)) THEN
           WRITE(*,*) "*** ERROR ***"
@@ -1051,6 +1110,49 @@ CONTAINS
       PRINT '(a,I2,a)', "rank==",rank," all have partners"
     END IF
   END SUBROUTINE associate_partners
+
+  SUBROUTINE remove_zeroweight_parts(species)
+    TYPE(particle_species), POINTER, INTENT(IN) :: species
+    TYPE(particle), POINTER :: current, next
+    INTEGER before, after
+    current => species%attached_list%head
+    before  =  species%attached_list%count
+    DO WHILE (ASSOCIATED(current))
+      next => current%next
+      IF (current%weight == 0.0_num) THEN
+        CALL remove_particle_from_partlist(species%attached_list, current)
+      END IF
+      current => next
+    END DO
+    after  =  species%attached_list%count
+    IF (before /= after) THEN
+      PRINT *, TRIM(species%name),"' had lost 0ws from", &
+           before, "to", after," for rank == ",rank
+    END IF
+  END SUBROUTINE remove_zeroweight_parts
+
+  SUBROUTINE associate_partners_restart
+
+    INTEGER ispecies
+    TYPE(particle_species), POINTER :: species
+
+    PRINT '(A,I2)', ">>> attemping partners association on restart rank==",rank
+    PRINT '(A,I2)', ">>> removing zero weights                     rank==",rank
+    DO ispecies = 1, n_species
+      species => species_list(ispecies)
+      CALL remove_zeroweight_parts(species)
+    END DO
+    PRINT '(A,I2)', ">>> allocating bp lists                       rank==",rank
+    DO ispecies = 1, n_species
+      species => species_list(ispecies)
+      CALL allocate_species_bp_lists(species)
+      CALL associate_partners(species, .TRUE.)
+    END DO
+    initial_association = .TRUE.
+    PRINT '(A,I2)', ">>> done associating partners for rank==",rank
+
+  END SUBROUTINE associate_partners_restart
+
 #endif
 
   FUNCTION sample_dist_function(axis, dist_fn)

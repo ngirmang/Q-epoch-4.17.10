@@ -21,6 +21,9 @@ MODULE ionise
   USE mpi
   USE utilities
   USE boundary
+#ifdef BOUND_HARMONIC
+  USE helper
+#endif
 
   IMPLICIT NONE
 
@@ -717,6 +720,10 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i))
+#endif
         END IF
         current => next
       END DO
@@ -1007,6 +1014,10 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i))
+#endif
         END IF
         current => next
       END DO
@@ -1286,6 +1297,10 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i))
+#endif
         END IF
         current => next
       END DO
@@ -1599,26 +1614,40 @@ CONTAINS
     TYPE(particle_species), INTENT(IN) :: species
 
     TYPE(particle), POINTER :: partner
-    TYPE(bp_item), POINTER :: cur_bp
+    TYPE(bp_item), POINTER :: cur_bp, next
     INTEGER, SAVE :: laststep = -1
     LOGICAL :: diminished
+
+    REAL(num), PARAMETER :: epsmin = 1e-9
 
     diminished = .FALSE.
     cur_bp => ion%partners_head
 
     !IF (laststep /= step) &
-    !  PRINT '(A, I2, A, I5)', "rank=",rank,": diminished at step ", step
+    !     PRINT '(A, I2, A, I5)', "rank=",rank,": diminished at step ", step
     DO WHILE (ASSOCIATED(cur_bp))
       partner => cur_bp%p
+      next    => cur_bp%next
       partner%weight = partner%weight*(1.0_num - species%diminish_factor)
-      IF (partner%weight < 0.0_num) partner%weight = 0.0_num
-      cur_bp => cur_bp%next
+      IF (partner%weight < 0.0_num) THEN
+        partner%weight = 0.0_num
+      END IF
+      IF (partner%weight <= epsmin) THEN ! remove from simulation
+        CALL remove_bp_item(ion, cur_bp)
+        CALL remove_particle_from_partlist(cur_bp%species%attached_list,&
+             partner)
+        !CALL destroy_particle(partner)
+        NULLIFY(cur_bp%p, cur_bp%species, cur_bp%next)
+        DEALLOCATE(cur_bp)
+      END IF
+      cur_bp => next
       diminished = .TRUE.
     END DO
-    !IF (laststep /= step .AND. diminished) THEN
-    !  PRINT '(A, I2, A, I5)', "rank=",rank,": diminshed at step ", step
-    !  laststep = step
-    !END IF
+
+    IF (laststep /= step .AND. diminished) THEN
+      PRINT '(A, I2, A, I5)', "rank=",rank,": diminshed at step ", step
+      laststep = step
+    END IF
   END SUBROUTINE diminish_partners
 #endif
 

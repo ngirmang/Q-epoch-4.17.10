@@ -341,6 +341,27 @@ CONTAINS
           cur => cur%next
         END DO
 #endif
+#ifdef BOUND_HARMONIC
+      CASE (c_dump_part_ix)
+        DO WHILE (ASSOCIATED(cur) .AND. (part_count < npoint_it))
+          part_count = part_count + 1
+          array(part_count) = cur%part_ip(1)
+          cur => cur%next
+        END DO
+      CASE (c_dump_part_iy)
+        DO WHILE (ASSOCIATED(cur) .AND. (part_count < npoint_it))
+          part_count = part_count + 1
+          array(part_count) = cur%part_ip(2)
+          cur => cur%next
+        END DO
+      CASE (c_dump_part_iz)
+        DO WHILE (ASSOCIATED(cur) .AND. (part_count < npoint_it))
+          part_count = part_count + 1
+          array(part_count) = cur%part_ip(3)
+          cur => cur%next
+        END DO
+
+#endif
       END SELECT
       ! If the current partlist is exhausted, switch to the next one
       IF (.NOT. ASSOCIATED(cur)) CALL advance_particle_list(current_list, cur)

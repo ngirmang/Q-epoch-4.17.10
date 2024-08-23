@@ -209,6 +209,18 @@ CONTAINS
       iepsz = 1.0_num / iepsz
       RETURN
     END IF
+!
+!   IF (str_cmp(element, 'eps_medium_diminish_by_cell')) THEN
+!     IF (as_logical_print(value, element, errcode)) &
+!         medium_eps_mode = c_epsmode_bycell
+!     RETURN
+!   END IF
+!
+!   IF (str_cmp(element, 'eps_medium_diminish_explicit')) THEN
+!     IF (as_logical_print(value, element, errcode)) &
+!          medium_eps_mode = c_epsmode_explicit
+!     RETURN
+!   END IF
     
 #endif
 

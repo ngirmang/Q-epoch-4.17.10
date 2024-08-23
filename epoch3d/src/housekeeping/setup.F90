@@ -272,8 +272,8 @@ CONTAINS
           ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
 #ifdef NEWPML
     ELSE IF (use_newpml) THEN
-      IF (rank==0) PRINT '(A,ES8.1,A,ES8.1)', "Using new pml, A=", newpml_coeff_A, &
-           ", m=", newpml_coeff_m
+      IF (rank==0) PRINT '(A,ES8.1,A,ES8.1)', "Using new pml, A=", &
+           newpml_coeff_A, ", m=", newpml_coeff_m
       CALL prep_newpml_helpers(nx, nx_global_min, nx_global_max, &
           ny, ny_global_min, ny_global_max, nz, nz_global_min, nz_global_max)
       cpml_kappa_max = 1.0_num
@@ -1639,7 +1639,9 @@ CONTAINS
     CALL set_thermal_bcs_all
     CALL setup_persistent_subsets
     CALL setup_background_species
-
+#ifdef BOUND_HARMONIC
+    CALL associate_partners_restart
+#endif
     IF (rank == 0) PRINT*, 'Load from restart dump OK'
 
   END SUBROUTINE restart_data

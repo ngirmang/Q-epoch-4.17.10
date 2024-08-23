@@ -563,7 +563,8 @@ CONTAINS
 
     ! bound_partners must be set after the end.
     IF (str_cmp(element, 'bound_partners')) THEN
-      IF ( .NOT. ASSOCIATED(r_bound_partners) ) ALLOCATE(r_bound_partners(n_species))
+      IF ( .NOT. ASSOCIATED(r_bound_partners) ) &
+           ALLOCATE(r_bound_partners(n_species))
       
       CALL initialise_stack(stack)
       CALL tokenize(value, stack, errcode)
@@ -577,6 +578,11 @@ CONTAINS
       END DO
       RETURN
     END IF
+
+!  ! epsilon resetter
+!   IF (str_cmp(element, 'dielectric_reduce')) THEN
+!
+!   END IF
 
     IF (str_cmp(element, 'dont_transfer_cpu')) THEN
       species_list(species_id)%dont_transfer_cpu = &

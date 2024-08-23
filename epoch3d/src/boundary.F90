@@ -2320,7 +2320,8 @@ CONTAINS
         IF (nx_global_min <= nx_global - cpml_thickness + 1) THEN
           ! in local grid coordinates
           ! global -> local: ixl = ixg - nx_global_min + 1
-          cpml_x_max_start = nx_global - cpml_thickness + 1 - nx_global_min + 1
+          cpml_x_max_start = &
+               nx_global - cpml_thickness + 1 - nx_global_min + 1
           cpml_x_max_offset = cpml_thickness - nx_global + nx_global_max
         ELSE
           cpml_x_max_start = 1 ! in local grid coordinates
@@ -2758,7 +2759,8 @@ CONTAINS
         IF (nx_global_min <= nx_global - cpml_thicknesses(2) + 1) THEN
           ! in local grid coordinates
           ! global -> local: ixl = ixg - nx_global_min + 1
-          cpml_x_max_start = nx_global - cpml_thicknesses(2) + 1 - nx_global_min + 1
+          cpml_x_max_start =&
+               nx_global - cpml_thicknesses(2) + 1 - nx_global_min + 1
           cpml_x_max_offset = cpml_thicknesses(2) - nx_global + nx_global_max
         ELSE
           cpml_x_max_start = 1 ! in local grid coordinates
@@ -2882,7 +2884,8 @@ CONTAINS
         IF (ny_global_min <= ny_global - cpml_thicknesses(4) + 1) THEN
           ! in local grid coordinates
           ! global -> local: iyl = iyg - ny_global_min + 1
-          cpml_y_max_start = ny_global - cpml_thicknesses(4) + 1 - ny_global_min + 1
+          cpml_y_max_start = &
+               ny_global - cpml_thicknesses(4) + 1 - ny_global_min + 1
           cpml_y_max_offset = cpml_thicknesses(4) - ny_global + ny_global_max
         ELSE
           cpml_y_max_start = 1 ! in local grid coordinates
@@ -3006,7 +3009,8 @@ CONTAINS
         IF (nz_global_min <= nz_global - cpml_thicknesses(6) + 1) THEN
           ! in local grid coordinates
           ! global -> local: izl = izg - nz_global_min + 1
-          cpml_z_max_start = nz_global - cpml_thicknesses(6) + 1 - nz_global_min + 1
+          cpml_z_max_start = &
+               nz_global - cpml_thicknesses(6) + 1 - nz_global_min + 1
           cpml_z_max_offset = cpml_thicknesses(6) - nz_global + nz_global_max
         ELSE
           cpml_z_max_start = 1 ! in local grid coordinates
@@ -3173,7 +3177,8 @@ CONTAINS
 
     pml_thickness_real = 1.0_num
     DO i=1,6
-      IF (cpml_thicknesses(i) > 0) pml_thickness_real(i) = REAL(cpml_thicknesses(i),num)
+      IF (cpml_thicknesses(i) > 0) &
+           pml_thickness_real(i) = REAL(cpml_thicknesses(i),num)
     END DO
     pml_thickness_real(1:2) = pml_thickness_real(1:2) * dx
     pml_thickness_real(3:4) = pml_thickness_real(3:4) * dy

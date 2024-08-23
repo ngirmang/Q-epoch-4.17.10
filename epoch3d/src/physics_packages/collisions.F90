@@ -259,6 +259,14 @@ CONTAINS
     END DO ! iy
     END DO ! iz
 
+#ifdef COLL_ELECCHECK
+
+    IF (quick_check_elec .AND. quick_check_ispecies /= -1) THEN
+      IF (species_list(quick_check_ispecies)%count == 0) THEN
+        RETURN
+      END IF
+    END IF
+#endif
     ALLOCATE(idens(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
     ALLOCATE(jdens(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
     ALLOCATE(e_dens(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
@@ -490,6 +498,10 @@ CONTAINS
 
   END SUBROUTINE collisional_ionisation
 
+!#ifdef CONSTEPS
+!  SUBROUTINE coll_diminish_ !here
+! END SUBROUTINE
+!#endif
 
 
 #ifndef PER_SPECIES_WEIGHT

@@ -95,6 +95,7 @@ MODULE shared_data
   TYPE bp_item
     TYPE(bp_item), POINTER  :: next
     TYPE(particle), POINTER :: p
+    TYPE(particle_species), POINTER :: species
   END TYPE bp_item
   LOGICAL :: initial_association = .FALSE.
 #endif
@@ -238,6 +239,8 @@ MODULE shared_data
     INTEGER, DIMENSION(:), POINTER :: bound_to
     LOGICAL :: dont_transfer_cpu
     REAL(num) :: diminish_factor
+
+    LOGICAL :: medium_species = .FALSE.
 #endif
     
     ! Specify if species is background species or not
@@ -474,6 +477,8 @@ MODULE shared_data
 
 #ifdef CONSTEPS
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: iepsx, iepsy, iepsz
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: medium_factor
+  INTEGER :: medium_eps_mode = -1
 #endif
 #ifdef NEWPML
   REAL(num) pml_thickness_real(6)
@@ -598,6 +603,10 @@ MODULE shared_data
   REAL(num) :: coulomb_log
   LOGICAL :: coulomb_log_auto, use_collisions
   LOGICAL :: use_nanbu = .TRUE.
+#ifdef COLL_ELECCHECK
+  LOGICAL :: quick_check_elec
+  INTEGER :: quick_check_ispecies = -1
+#endif
 
   LOGICAL :: use_field_ionisation, use_collisional_ionisation
   LOGICAL :: use_multiphoton, use_bsi
