@@ -522,7 +522,7 @@ ic_module.o: ic_module.f90 helper.o shared_data.o
 injectors.o: injectors.F90 evaluate.o particle_temperature.o partlist.o \
   random_generator.o utilities.o
 ionise.o: ionise.F90 boundary.o numerics.o partlist.o random_generator.o \
-  utilities.o
+  utilities.o helper.o
 iterators.o: iterators.F90 particle_id_hash.o particle_pointer_advance.o \
   partlist.o
 laser.o: laser.f90 custom_laser.o evaluate.o
