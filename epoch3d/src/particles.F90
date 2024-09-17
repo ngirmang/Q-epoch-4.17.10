@@ -26,7 +26,7 @@ MODULE particles
   
   PRIVATE
   
-  PUBLIC :: push_particles, f0, check_bound_particles
+  PUBLIC :: push_particles, f0, check_bound_particles, clean_diminished_parts
 #if defined(PHOTONS) || defined(BREMSSTRAHLUNG)
   PUBLIC :: push_photons
 #endif !photons
@@ -55,6 +55,7 @@ CONTAINS
   PURE FUNCTION crossB(ibx,iby,ibz)
     REAL(num), INTENT(in) :: ibx, iby, ibz
     REAL(num) crossB(3,3)
+    crossB = 0.0d0
     crossB(1,2) = ibz
     crossB(1,3) =-iby
     crossB(2,3) = ibx
@@ -192,8 +193,6 @@ CONTAINS
     !REAL(num) pre_part_pos(3),tmp(3)
 #endif
 
-    
-    
 #ifdef PREFETCH
     CALL prefetch_particle(species_list(1)%attached_list%head)
 #endif
@@ -224,6 +223,9 @@ CONTAINS
     DO ispecies = 1, n_species
       current => species_list(ispecies)%attached_list%head
       IF (species_list(ispecies)%immobile) CYCLE
+#ifdef SKIP_ZEROPARTS
+      IF (species_list(ispecies)%count == 0) CYCLE
+#endif
       IF (species_list(ispecies)%species_type == c_species_id_photon) THEN
 #ifdef BREMSSTRAHLUNG
         IF (ispecies == bremsstrahlung_photon_species) THEN
@@ -952,6 +954,69 @@ CONTAINS
     END DO
 
   END SUBROUTINE push_photons
+#endif
+#ifdef BOUND_HARMONIC
+  SUBROUTINE clean_diminished_parts
+    TYPE(particle_species), POINTER :: species
+    TYPE(particle), POINTER :: current, next
+    REAL(num), PARAMETER :: epsmin = c_small_weight
+    INTEGER i, nremoved
+
+    DO i=1,n_species
+      current => species_list(i)%attached_list%head
+      nremoved = 0
+      DO WHILE (ASSOCIATED(current))
+        next => current%next
+        IF (current%partner_count == 0 .AND. current%weight == 0) THEN
+          ! no partners and zeroweight, physically diminished and
+          ! all partners unlinked pointer wise, so we can remove from the simulation
+          ! safely
+          CALL remove_particle_from_partlist(species_list(i)%attached_list,&
+               current)
+          CALL destroy_particle(current)
+          nremoved = nremoved + 1
+        END IF
+        current => next
+      END DO
+      IF (nremoved > 0) THEN
+#ifdef VERBOSE_BNDHARM
+        PRINT '(A,I2,A,I5.5,A,A)', &
+             "rank=",rank," clean_diminished_parts: removed ",nremoved,&
+             " from species ", TRIM(species_list(i)%name)
+#endif
+      END IF
+    END DO ! species
+  END SUBROUTINE clean_diminished_parts
+
+  SUBROUTINE check_spec_cell_z(label)
+    INTEGER, INTENT(IN) :: label
+    TYPE(particle_species), POINTER :: species
+    TYPE(particle), POINTER :: current, next
+    REAL(num) d(3)
+    INTEGER i, ncell(3)
+    LOGICAL found
+    found = .FALSE.
+    current => species_list(1)%attached_list%head
+    i = 1
+    DO WHILE (ASSOCIATED(current))
+      next => current%next
+      d = current%part_pos - &
+           [x_grid_min_local,y_grid_min_local,z_grid_min_local]
+      d = d / [dx,dy,dz] + 1.5_num
+      ncell = FLOOR(d)
+
+      IF (ncell(3) > 50) THEN
+        PRINT "(A,I2,A,I3,A,3I4,A,I4)", &
+             "rank=",rank,": label=",label,", ncell = ",ncell,&
+             ", i = ",i
+        found = .TRUE.
+      END IF
+      current => next
+      i = i + 1
+    END DO
+    IF (.NOT. found) PRINT "(A,I2,A,I3)", "rank=",rank,&
+         ": check_spec_cell_z ok for label=",label
+  END SUBROUTINE check_spec_cell_z
 #endif
 
 END MODULE particles

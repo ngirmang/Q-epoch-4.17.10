@@ -186,7 +186,7 @@ DEFINES += $(D)BOUND_HARMONIC $(D)PARTICLE_ID $(D)WINDOW_NO_EXTRA $(D)CONSTEPS
 DEFINES += $(D)SIMPLE_ADK
 #DEFINES += $(D)FASTBCS
 DEFINES += $(D)NEWPML
-DEFINES += $(D)COLL_ELECCHECK
+DEFINES += $(D)COLL_ELECCHECK $(D)SKIP_ZEROPARTS
 #DEFINES += $(D)PARTICLE_ID4 $(D)PARTICLE_SHAPE_TOPHAT
 # end added
 
@@ -460,7 +460,7 @@ boundary.o: boundary.F90 injectors.o laser.o mpi_subtype_control.o \
   particle_id_hash.o particle_temperature.o partlist.o utilities.o
 bremsstrahlung.o: bremsstrahlung.F90 calc_df.o partlist.o setup.o
 calc_df.o: calc_df.F90 boundary.o
-collisions.o: collisions.F90 calc_df.o prefetch.o
+collisions.o: collisions.F90 calc_df.o prefetch.o ionise.o
 constants.o: constants.F90 $(SDFMOD)
 current_smooth.o: current_smooth.F90 boundary.o constants.o shape_functions.o
 custom_deck.o: custom_deck.f90 constants.o

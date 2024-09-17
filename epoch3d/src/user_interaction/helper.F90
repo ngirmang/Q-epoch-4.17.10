@@ -164,7 +164,7 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     ! associate bound partners
     IF (rank == 0) PRINT '(a,I2,a)',&
-         ">>>>>>>>>>>>> associating partners for ", n_species, " species"
+         "associating partners for ", n_species, " species"
     
     DO ispecies = 1, n_species
       species => species_list(ispecies)
@@ -172,7 +172,7 @@ CONTAINS
       CALL associate_partners(species, .TRUE.)
     END DO
     initial_association = .TRUE.
-    IF (rank == 0) PRINT '(a)', ">>>>>>>>>>>>> done associating partners"
+    IF (rank == 0) PRINT '(a)', "done associating partners"
 #endif
     IF (rank == 0) THEN
       DO ispecies = 1, n_species
@@ -943,9 +943,10 @@ CONTAINS
   SUBROUTINE allocate_species_bp_lists(species)
     TYPE(particle_species), INTENT(IN) :: species
     TYPE(particle), POINTER :: current
-    TYPE(bp_item), POINTER :: cur_bp, last
+    TYPE(bp_item), POINTER :: cur_bp
     INTEGER i, npartners
-
+    LOGICAL check
+    check = .TRUE.
     IF (.NOT. ASSOCIATED(species%bound_to)) RETURN
 #if !defined(PARTICLE_ID4) && !defined(PARTICLE_ID)
     PRINT *, "***ERROR***"
@@ -956,14 +957,16 @@ CONTAINS
     current => species%attached_list%head
     npartners = SIZE(species%bound_to)
     NULLIFY(cur_bp)
+#ifdef VERBOSE_BNDHARM
     IF (rank == 0) PRINT '(a,I2,a,a)', &
          "allocating ", npartners, " partner(s) for species ", &
          TRIM(species%name)
+#endif
     DO WHILE(ASSOCIATED(current))
       IF (.NOT. ASSOCIATED(current%partners_head)) THEN
-        ALLOCATE(current%partners_head)
+        ALLOCATE(cur_bp)
 
-        cur_bp => current%partners_head
+        current%partners_head => cur_bp
 
         DO i=1,npartners
           NULLIFY(cur_bp%next)
@@ -974,7 +977,27 @@ CONTAINS
       END IF
       current => current%next
     END DO
+
+    !check
+    IF (check) THEN
+      current => species%attached_list%head
+      DO WHILE(ASSOCIATED(current))
+        i = 0
+        cur_bp => current%partners_head
+        DO WHILE(ASSOCIATED(cur_bp))
+          i = i + 1
+          cur_bp => cur_bp%next
+        END DO
+        IF ( i /= npartners ) THEN
+          PRINT *, "***ERROR***: allocated bp_list does not match npartners"
+          CALL abort_code(c_err_bad_value)
+        END IF
+        current => current%next
+      END DO
+    END IF
+#ifdef VERBOSE_BNDHARM
     IF (rank == 0) PRINT '(a,a)', "done for ", TRIM(species%name)
+#endif
   END SUBROUTINE allocate_species_bp_lists
   
   SUBROUTINE remove_bp_item(ion, bp)
@@ -992,7 +1015,7 @@ CONTAINS
     END IF
 
     prev => ion%partners_head
-    cur  => cur%next
+    cur  => prev%next
     PRINT *, "warning: remove_bp_item beyond 1"
     DO WHILE(ASSOCIATED(cur))
       IF (ASSOCIATED(cur, TARGET=bp)) THEN
@@ -1038,8 +1061,10 @@ CONTAINS
     IF (npartners > 1) THEN
       PRINT "(A)", "use more than one partner diminishment with caution"
     END IF
+#ifdef VERBOSE_BNDHARM
     IF (rank == 0) PRINT '(a,a)', "associating partners for species ", &
          TRIM(species%name)
+#endif
     !IF (rank == 0) PRINT '(I2, a, 3I2, a)', npartners, " partners: [", &
      !    species%bound_to, " ]"
     ! this is flipped, in order to take advantage of the fact
@@ -1052,6 +1077,7 @@ CONTAINS
       ncount  = species%attached_list%count
 
       partner => partner_species%attached_list%head
+
       current => species%attached_list%head
       DO WHILE(ASSOCIATED(current))
         I0 = pos_to_cell(current%part_pos)
@@ -1060,13 +1086,14 @@ CONTAINS
           cur_bp => cur_bp%next
         END DO
         NULLIFY(cur_bp%p)
-        cur_bp%species => partner_species
         
         partner_loop: DO j=1,npcount
           I1 = pos_to_cell(partner%part_pos)
           ! check cell
           IF ( ALL( I0 == I1 ) ) THEN
             cur_bp%p => partner
+            IF (partner%partner_count == -1) partner%partner_count = 0
+            partner%partner_count = partner%partner_count + 1
             !partner  => partner%next
             EXIT partner_loop
           ENDIF
@@ -1080,13 +1107,15 @@ CONTAINS
           ENDIF
           I1 = pos_to_cell(partner%part_pos)
           IF ( .NOT. dumped .AND. j > 2 ) THEN
-            PRINT '(a,I2,a)', "rank==",rank," exceeded 2 in search"
+            PRINT '(A,I2,A,A)', "rank==",rank,&
+                 " exceeded 2 in search for ", TRIM(species%name)
             dumped = .TRUE.
           END IF
         END DO partner_loop
         IF ( .NOT. ASSOCIATED(cur_bp%p)) THEN
           WRITE(*,*) "*** ERROR ***"
-          WRITE(*,*) "Failed to associate bound partners"
+          WRITE(*,*) "Failed to associate bound partners for ", &
+               TRIM(species%name)
           CALL abort_code(c_err_bad_setup)
         END IF
         current => current%next
@@ -1100,14 +1129,18 @@ CONTAINS
         DO WHILE(ASSOCIATED(cur_bp))
           IF (.NOT. ASSOCIATED(cur_bp%p)) THEN
             WRITE(*,*) "*** ERROR ***"
-            WRITE(*,*) "Failed to associate bound partners"
+            WRITE(*,*) "Failed to associate bound partners for ", &
+                 TRIM(species%name)
             CALL abort_code(c_err_bad_setup)
           END IF
           cur_bp => cur_bp%next
         END DO !partners
         current => current%next
       END DO ! check
-      PRINT '(a,I2,a)', "rank==",rank," all have partners"
+#ifdef VERBOSE_BNDHARM
+      PRINT '(A,I2,A,A,A)', "rank=",rank," associate_partners: all of ",&
+           TRIM(species%name), " have partners"
+#endif
     END IF
   END SUBROUTINE associate_partners
 
@@ -1135,7 +1168,9 @@ CONTAINS
 
     INTEGER ispecies
     TYPE(particle_species), POINTER :: species
-
+    IF (rank == 0) &
+         PRINT '(A)', &
+         ">>> restarting with association. beware this is likely to be broken."
     PRINT '(A,I2)', ">>> attemping partners association on restart rank==",rank
     PRINT '(A,I2)', ">>> removing zero weights                     rank==",rank
     DO ispecies = 1, n_species

@@ -220,7 +220,6 @@ PROGRAM pic
       CALL run_injectors
       ! .FALSE. this time to use load balancing threshold
       IF (use_balance) CALL balance_workload(.FALSE.)
-      
       CALL push_particles
 #ifdef BOUND_HARMONIC
       CALL check_bound_particles
@@ -246,6 +245,10 @@ PROGRAM pic
       END IF
       IF (use_particle_migration) CALL migrate_particles(step)
       IF (use_field_ionisation) CALL ionise_particles
+#ifdef BOUND_HARMONIC
+      !clean up zero weight diminished partners with no remaining partners
+      CALL clean_diminished_parts
+#endif
       CALL current_finish
       CALL update_particle_count
     END IF

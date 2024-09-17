@@ -95,7 +95,6 @@ MODULE shared_data
   TYPE bp_item
     TYPE(bp_item), POINTER  :: next
     TYPE(particle), POINTER :: p
-    TYPE(particle_species), POINTER :: species
   END TYPE bp_item
   LOGICAL :: initial_association = .FALSE.
 #endif
@@ -152,6 +151,7 @@ MODULE shared_data
     REAL(num), DIMENSION(3) :: part_ip
 
     TYPE(bp_item), POINTER :: partners_head
+    INTEGER :: partner_count = -1 !number of partners bound to this particle
 #endif
   END TYPE particle
 

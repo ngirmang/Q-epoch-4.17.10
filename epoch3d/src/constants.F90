@@ -33,6 +33,9 @@ MODULE constants
   REAL(num), PARAMETER :: c_largest_exp = c_maxexponent * c_log2
   REAL(num), PARAMETER :: &
       c_smallest_exp = (MINEXPONENT(1.0_num) - 1.0_num) * c_log2
+#ifdef BOUND_HARMONIC
+  REAL(num), PARAMETER :: c_small_weight = 1e-10_num
+#endif
 
   INTEGER, PARAMETER :: c_ndims = 3
   INTEGER, PARAMETER :: c_ndirs = 3 ! Number of directions for velocity

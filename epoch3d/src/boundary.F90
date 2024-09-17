@@ -1506,13 +1506,13 @@ CONTAINS
     x_max_outer = x_max + dx * ( 1 + png + cpml_thicknesses(2)) / 2.0_num
     x_shift = length_x +  dx * (cpml_thicknesses(1) + cpml_thicknesses(2))
 
-    y_min_outer = y_min - dy * ( 1 + png + cpml_thicknesses(1)) / 2.0_num
-    y_max_outer = y_max + dy * ( 1 + png + cpml_thicknesses(2)) / 2.0_num
+    y_min_outer = y_min - dy * ( 1 + png + cpml_thicknesses(3)) / 2.0_num
+    y_max_outer = y_max + dy * ( 1 + png + cpml_thicknesses(4)) / 2.0_num
     y_shift = length_y +  dy * (cpml_thicknesses(3) + cpml_thicknesses(4))
 
-    z_min_outer = z_min - dz * ( 1 + png + cpml_thicknesses(1)) / 2.0_num
-    z_max_outer = z_max + dz * ( 1 + png + cpml_thicknesses(2)) / 2.0_num
-    z_shift = length_z +  dz * (cpml_thicknesses(3) + cpml_thicknesses(4))
+    z_min_outer = z_min - dz * ( 1 + png + cpml_thicknesses(5)) / 2.0_num
+    z_max_outer = z_max + dz * ( 1 + png + cpml_thicknesses(6)) / 2.0_num
+    z_shift = length_z +  dz * (cpml_thicknesses(5) + cpml_thicknesses(6))
 #else
     boundary_shift = dx * REAL((1 + png + cpml_thickness) / 2, num)
     x_min_outer = x_min - boundary_shift
@@ -2111,6 +2111,15 @@ CONTAINS
         END IF
 
         IF (out_of_bounds) THEN
+#ifdef VERBOSE_BNDHARM
+          IF (cur%partner_count > 0) THEN
+            PRINT "(A, I4, A, I5.5)", &
+                 "ERROR (rank=",rank,"): "//&
+                 "out_of_bounds particle with"//&
+                 " partners!!! cur%partner_count=", &
+                 cur%partner_count
+          END IF
+#endif
           ! Particle has gone forever
           CALL remove_particle_from_partlist(&
               species_list(ispecies)%attached_list, cur)
@@ -2141,7 +2150,7 @@ CONTAINS
             izp = -iz
             CALL partlist_sendrecv(send(ix, iy, iz), recv(ixp, iyp, izp), &
                 neighbour(ix, iy, iz), neighbour(ixp, iyp, izp))
-#ifdef BOUND_HARMONIC
+#ifdef VERBOSE_BNDHARM
             ! warn about unbound partners
             IF (ASSOCIATED(species_list(ispecies)%bound_to) &
                  .AND. recv(ixp,iyp,izp)%count > 0) &

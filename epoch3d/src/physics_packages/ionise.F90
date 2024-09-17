@@ -637,6 +637,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -722,7 +725,7 @@ CONTAINS
           END IF
 #ifdef BOUND_HARMONIC
           ! for ionised particle, diminsh their partners
-          CALL diminish_partners(current, species_list(i))
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
         END IF
         current => next
@@ -931,6 +934,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -1016,7 +1022,7 @@ CONTAINS
           END IF
 #ifdef BOUND_HARMONIC
           ! for ionised particle, diminsh their partners
-          CALL diminish_partners(current, species_list(i))
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
         END IF
         current => next
@@ -1228,6 +1234,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -1299,7 +1308,7 @@ CONTAINS
           END IF
 #ifdef BOUND_HARMONIC
           ! for ionised particle, diminsh their partners
-          CALL diminish_partners(current, species_list(i))
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
         END IF
         current => next
@@ -1523,6 +1532,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -1594,7 +1606,7 @@ CONTAINS
           END IF
 #ifdef BOUND_HARMONIC
           ! for ionised particle, diminsh their partners
-          CALL diminish_partners(current, species_list(i))
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
         END IF
         current => next
@@ -1609,16 +1621,15 @@ CONTAINS
   END SUBROUTINE tunnelling
 
 #ifdef BOUND_HARMONIC
-  SUBROUTINE diminish_partners(ion, species)
+  SUBROUTINE diminish_partners(ion, diminish_factor, collisions)
     TYPE(particle), POINTER, INTENT(IN) :: ion
-    TYPE(particle_species), INTENT(IN) :: species
-
+    REAL(num), INTENT(in) :: diminish_factor
+    LOGICAL, OPTIONAL :: collisions
     TYPE(particle), POINTER :: partner
     TYPE(bp_item), POINTER :: cur_bp, next
-    INTEGER, SAVE :: laststep = -1
+    INTEGER, SAVE :: laststep = -1, laststep_coll = -1
     LOGICAL :: diminished
-
-    REAL(num), PARAMETER :: epsmin = 1e-9
+    REAL(num), PARAMETER :: epsmin = c_small_weight
 
     diminished = .FALSE.
     cur_bp => ion%partners_head
@@ -1628,26 +1639,32 @@ CONTAINS
     DO WHILE (ASSOCIATED(cur_bp))
       partner => cur_bp%p
       next    => cur_bp%next
-      partner%weight = partner%weight*(1.0_num - species%diminish_factor)
-      IF (partner%weight < 0.0_num) THEN
+      partner%weight = partner%weight*(1.0_num - diminish_factor)
+      IF (partner%weight < epsmin) THEN
+        ! remove bp_item for particle to be logically unpartnered
         partner%weight = 0.0_num
-      END IF
-      IF (partner%weight <= epsmin) THEN ! remove from simulation
+        partner%partner_count = partner%partner_count - 1
         CALL remove_bp_item(ion, cur_bp)
-        CALL remove_particle_from_partlist(cur_bp%species%attached_list,&
-             partner)
-        !CALL destroy_particle(partner)
-        NULLIFY(cur_bp%p, cur_bp%species, cur_bp%next)
+        NULLIFY(cur_bp%p, cur_bp%next)
         DEALLOCATE(cur_bp)
       END IF
       cur_bp => next
       diminished = .TRUE.
     END DO
 
-    IF (laststep /= step .AND. diminished) THEN
-      PRINT '(A, I2, A, I5)', "rank=",rank,": diminshed at step ", step
+#ifdef VERBOSE_BNDHARM
+    IF (PRESENT(collisions) .AND. collisions) THEN
+      IF (laststep_coll /= step .AND. diminished) THEN
+        PRINT '(A, I2, A, I5)', "rank=",rank,": collisional diminsh at step ", step
+      END IF
+      laststep_coll = laststep
+    ELSE
+      IF (laststep /= step .AND. diminished) THEN
+        PRINT '(A, I2, A, I5)', "rank=",rank,": field diminsh at step ", step
+      END IF
       laststep = step
     END IF
+#endif
   END SUBROUTINE diminish_partners
 #endif
 
