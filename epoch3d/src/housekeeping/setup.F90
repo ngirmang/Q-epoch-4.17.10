@@ -474,6 +474,17 @@ CONTAINS
       NULLIFY(species_list(ispecies)%attached_probes)
 #endif
     END DO
+#ifdef BOUND_HARMONIC
+
+    ALLOCATE(field_ionisation_counts(n_species))
+    ALLOCATE(last_field_ionisation_counts(n_species))
+    field_ionisation_counts = 0
+    last_field_ionisation_counts = 0
+    ALLOCATE(coll_ionisation_counts(n_species))
+    ALLOCATE(last_coll_ionisation_counts(n_species))
+    coll_ionisation_counts = 0
+    last_coll_ionisation_counts = 0
+#endif
 
   END SUBROUTINE setup_species
 

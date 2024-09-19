@@ -447,6 +447,9 @@ CONTAINS
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
     REAL(num) :: part_z, cell_z_r, cell_frac_z, idz
     LOGICAL :: multiphoton_ionised
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -669,6 +672,11 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -724,6 +732,8 @@ CONTAINS
             END DO
           END IF
 #ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
@@ -757,6 +767,9 @@ CONTAINS
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
     REAL(num) :: part_z, cell_z_r, cell_frac_z, idz
     LOGICAL :: multiphoton_ionised
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -966,6 +979,13 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
+
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -1021,6 +1041,8 @@ CONTAINS
             END DO
           END IF
 #ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
@@ -1053,6 +1075,9 @@ CONTAINS
     REAL(num) :: part_x, cell_x_r, cell_frac_x, idx
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
     REAL(num) :: part_z, cell_z_r, cell_frac_z, idz
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -1257,6 +1282,12 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
+
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -1307,6 +1338,8 @@ CONTAINS
             END DO
           END IF
 #ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
@@ -1339,6 +1372,9 @@ CONTAINS
     REAL(num) :: part_x, cell_x_r, cell_frac_x, idx
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
     REAL(num) :: part_z, cell_z_r, cell_frac_z, idz
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -1555,6 +1591,12 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
+
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -1605,6 +1647,8 @@ CONTAINS
             END DO
           END IF
 #ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif

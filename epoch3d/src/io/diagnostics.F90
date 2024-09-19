@@ -230,6 +230,10 @@ CONTAINS
         (/'x_max', 'y_max', 'z_max', 'x_min', 'y_min', 'z_min'/)
     INTEGER, DIMENSION(6) :: fluxdir = &
         (/c_dir_x, c_dir_y, c_dir_z, -c_dir_x, -c_dir_y, -c_dir_z/)
+#ifdef BOUND_HARMONIC
+    INTEGER :: noldfield, ncurfield, noldcoll, ncurcoll
+    LOGICAL :: ionis_header_printed
+#endif
 
     ! Clean-up any cached RNG state
     CALL random_flush_cache
@@ -279,6 +283,58 @@ CONTAINS
                 'fields were not output.'
         skipped_any_set = .FALSE.
       END IF
+#ifdef BOUND_HARMONIC
+      IF (print_ionisation_counts .AND. stdout_frequency > 0 &
+           .AND. MOD(step, stdout_frequency) == 0) THEN
+        ionis_header_printed = .FALSE.
+        DO ispecies=1,n_species
+          i = field_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, ncurfield, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+          i = last_field_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, noldfield, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+          i = coll_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, ncurcoll, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+          i = last_coll_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, noldcoll, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+
+
+          IF (rank == 0 .AND. (ncurfield+ncurcoll) > 0) THEN
+            IF ( .NOT. ionis_header_printed) THEN
+              PRINT '(A)', &
+                   " Ionisation produced the following macroparticles "//&
+                   "(and delta since last printing):"
+              PRINT '(A)', &
+!                            1        2         3         4         5
+!                   1234567890123456789012345678901234567890123456789012
+                   '               field ionis.         collisional ionis.'
+              ionis_header_printed = .TRUE.
+            END IF
+
+            WRITE (*, '(A,A12,A,I9)', advance='no') &
+                 '  ', TRIM(species_list(ispecies)%name),': ', ncurfield
+            IF ((ncurfield - noldfield) > 0) THEN
+              n = ncurfield - noldfield
+              WRITE(*, '(A,SP,I7,S,A)',advance='no') ' (',n,')'
+            ELSE
+              WRITE(*, '(A10)',advance='no') ''
+            END IF
+            WRITE (*, '(A,I9)', advance='no') ' ', ncurcoll
+            IF ((ncurcoll - noldcoll) > 0) THEN
+              n = ncurcoll - noldcoll
+              WRITE(*, '(A,SP,I7,S,A)') ' (',n,')'
+            ELSE
+              WRITE(*, '(A9)') ''
+            END IF
+          END IF
+        END DO
+        last_field_ionisation_counts = field_ionisation_counts
+        last_coll_ionisation_counts = coll_ionisation_counts
+      END IF
+#endif
     END IF
 
     IF (n_io_blocks <= 0) RETURN

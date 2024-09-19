@@ -610,6 +610,13 @@ MODULE shared_data
 
   LOGICAL :: use_field_ionisation, use_collisional_ionisation
   LOGICAL :: use_multiphoton, use_bsi
+#ifdef BOUND_HARMONIC
+  LOGICAL :: print_ionisation_counts = .FALSE.
+  INTEGER, DIMENSION(:), ALLOCATABLE :: field_ionisation_counts
+  INTEGER, DIMENSION(:), ALLOCATABLE :: coll_ionisation_counts
+  INTEGER, DIMENSION(:), ALLOCATABLE :: last_field_ionisation_counts
+  INTEGER, DIMENSION(:), ALLOCATABLE :: last_coll_ionisation_counts
+#endif
 
   INTEGER :: maxwell_solver = c_maxwell_solver_yee
   REAL(num) :: dt_custom

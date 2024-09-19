@@ -477,6 +477,9 @@ CONTAINS
     ELSE IF (str_cmp(element, 'check_bound_interval')) THEN
       check_bound_interval = as_integer_print(value, element, errcode)
 
+    ELSE IF (str_cmp(element, 'print_ionisation_counts')) THEN
+      print_ionisation_counts = as_logical_print(value, element, errcode)
+
 #endif
 
     ELSE

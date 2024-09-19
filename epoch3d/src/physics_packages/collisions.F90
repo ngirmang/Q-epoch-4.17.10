@@ -415,7 +415,7 @@ CONTAINS
                 species_list(ion_species)%secondary_list(ix,iy,iz), &
                 ionising_e, ejected_e, m1, m2, q1, q2, idens(ix,iy,iz), &
                 q_full, ionisation_energy, n1, n2, l, &
-                species_list(ispecies)%diminish_factor)
+                ispecies)
 #else
             CALL preionise(species_list(jspecies)%secondary_list(ix,iy,iz), &
                 species_list(ispecies)%secondary_list(ix,iy,iz), &
@@ -446,8 +446,6 @@ CONTAINS
             CALL append_partlist( &
                 species_list(species_list(ispecies)%release_species)&
                 %secondary_list(ix,iy,iz), ejected_e)
-#ifdef BOUND_HARMONIC
-#endif
           END DO ! ix
           END DO ! iy
           END DO ! iz
@@ -463,7 +461,7 @@ CONTAINS
                 species_list(ion_species)%secondary_list(ix,iy,iz), &
                 ionising_e, ejected_e, m1, m2, q1, q2, idens(ix,iy,iz), &
                 q_full, ionisation_energy, n1, n2, l, &
-                species_list(jspecies)%diminish_factor)
+                jspecies)
 #else
             CALL preionise(species_list(ispecies)%secondary_list(ix,iy,iz), &
                 species_list(jspecies)%secondary_list(ix,iy,iz), &
@@ -494,8 +492,6 @@ CONTAINS
             CALL append_partlist( &
                 species_list(species_list(jspecies)%release_species)&
                 %secondary_list(ix,iy,iz), ejected_e)
-#ifdef BOUND_HARMONIC
-#endif
           END DO ! ix
           END DO ! iy
           END DO ! iz
@@ -528,7 +524,7 @@ CONTAINS
 #ifdef BOUND_HARMONIC
   SUBROUTINE preionise(electrons, ions, ionised, ionising_e, &
       ejected_e, e_mass, ion_mass, e_charge, ion_charge, e_dens, &
-      full_ion_charge, ionisation_energy, n1, n2, l, diminish_factor)
+      full_ion_charge, ionisation_energy, n1, n2, l, ionspecies)
 #else
   SUBROUTINE preionise(electrons, ions, ionised, ionising_e, &
       ejected_e, e_mass, ion_mass, e_charge, ion_charge, e_dens, &
@@ -544,8 +540,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: n1, n2, l
 
 #ifdef BOUND_HARMONIC
-    REAL(num), INTENT(IN) :: diminish_factor
+    INTEGER, INTENT(IN) :: ionspecies
 
+    INTEGER :: irelease, inext
+    REAL(num) :: diminish_factor
 #endif
     TYPE(particle), POINTER :: electron, ion, ejected_electron, next_ion, next_e
 
@@ -556,6 +554,13 @@ CONTAINS
         e_v_i, mrbeb_c, t, tp, bp, bt2, bb2
     REAL(num) :: ionisation_energy_inv, red_ion_inv, prob_factor, denominator
     INTEGER(KIND=8) :: e_count, ion_count, pcount, i, k
+#ifdef BOUND_HARMONIC
+
+    irelease = species_list(ionspecies)%release_species
+    inext= species_list(ionspecies)%ionise_to_species
+
+    diminish_factor = species_list(ionspecies)%diminish_factor
+#endif
 
     ! Inter-species collisions
     e_count = electrons%count
@@ -770,6 +775,11 @@ CONTAINS
 #endif
 #ifdef BOUND_HARMONIC
           ejected_electron%part_ip = ejected_electron%part_pos
+
+          coll_ionisation_counts(irelease) = &
+               coll_ionisation_counts(irelease) + 1
+          coll_ionisation_counts(inext) = &
+               coll_ionisation_counts(inext) + 1
           CALL diminish_partners(ion, diminish_factor, .TRUE.)
 #endif
           CALL add_particle_to_partlist(ejected_e, ejected_electron)
