@@ -1150,6 +1150,14 @@ CONTAINS
         IOR(io_block%dumpmask(c_dump_cpml_psi_bxz), c_io_restartable)
     io_block%dumpmask(c_dump_cpml_psi_byz) = &
         IOR(io_block%dumpmask(c_dump_cpml_psi_byz), c_io_restartable)
+#ifdef BOUND_HARMONIC
+    io_block%dumpmask(c_dump_part_ix) = &
+        IOR(io_block%dumpmask(c_dump_part_ix), c_io_restartable)
+    io_block%dumpmask(c_dump_part_iy) = &
+        IOR(io_block%dumpmask(c_dump_part_iy), c_io_restartable)
+    io_block%dumpmask(c_dump_part_iz) = &
+        IOR(io_block%dumpmask(c_dump_part_iz), c_io_restartable)
+#endif
 
   END SUBROUTINE set_restart_dumpmasks
 

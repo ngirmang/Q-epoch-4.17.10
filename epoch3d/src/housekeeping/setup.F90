@@ -1523,6 +1523,20 @@ CONTAINS
         ELSE IF (block_id(1:3) == 'pz/') THEN
           CALL sdf_read_point_variable(sdf_handle, npart_local, &
               species_subtypes(ispecies), it_pz)
+#ifdef BOUND_HARMONIC
+
+        ELSE IF (block_id(1:3) == 'ix/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_ix)
+
+        ELSE IF (block_id(1:3) == 'iy/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_iy)
+
+        ELSE IF (block_id(1:3) == 'iz/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_iz)
+#endif !BOUND_HARMONIC
 
         ELSE IF (block_id(1:3) == 'id/') THEN
 #if defined(PARTICLE_ID) || defined(PARTICLE_ID4)
@@ -1930,6 +1944,68 @@ CONTAINS
     it_pz = 0
 
   END FUNCTION it_pz
+#ifdef BOUND_HARMONIC
+
+
+
+  FUNCTION it_ix(array, npart_this_it, start, param)
+
+    REAL(num) :: it_ix
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_ip(1) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_ix = 0
+
+  END FUNCTION it_ix
+
+
+
+  FUNCTION it_iy(array, npart_this_it, start, param)
+
+    REAL(num) :: it_iy
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_ip(2) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_iy = 0
+
+  END FUNCTION it_iy
+
+
+
+  FUNCTION it_iz(array, npart_this_it, start, param)
+
+    REAL(num) :: it_iz
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_ip(3) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_iz = 0
+
+  END FUNCTION it_iz
+#endif
 
 
 
