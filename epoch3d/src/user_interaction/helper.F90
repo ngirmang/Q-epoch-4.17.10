@@ -1144,7 +1144,7 @@ CONTAINS
     END IF
   END SUBROUTINE associate_partners
 
-  SUBROUTINE remove_zeroweight_parts(species)
+  SUBROUTINE remove_alone_partners(species)
     TYPE(particle_species), POINTER, INTENT(IN) :: species
     TYPE(particle), POINTER :: current, next
     INTEGER before, after
@@ -1152,8 +1152,9 @@ CONTAINS
     before  =  species%attached_list%count
     DO WHILE (ASSOCIATED(current))
       next => current%next
-      IF (current%weight == 0.0_num) THEN
+      IF (current%weight == 0.0_num.AND.current%partner_count <= 0) THEN
         CALL remove_particle_from_partlist(species%attached_list, current)
+        CALL destroy_particle(current)  
       END IF
       current => next
     END DO
@@ -1162,7 +1163,7 @@ CONTAINS
       PRINT *, TRIM(species%name),"' had lost 0ws from", &
            before, "to", after," for rank == ",rank
     END IF
-  END SUBROUTINE remove_zeroweight_parts
+  END SUBROUTINE remove_alone_partners
 
   SUBROUTINE associate_partners_restart
 
@@ -1172,16 +1173,16 @@ CONTAINS
          PRINT '(A)', &
          ">>> restarting with association. beware this is likely to be broken."
     PRINT '(A,I2)', ">>> attemping partners association on restart rank==",rank
-    PRINT '(A,I2)', ">>> removing zero weights                     rank==",rank
-    DO ispecies = 1, n_species
-      species => species_list(ispecies)
-      CALL remove_zeroweight_parts(species)
-    END DO
     PRINT '(A,I2)', ">>> allocating bp lists                       rank==",rank
     DO ispecies = 1, n_species
       species => species_list(ispecies)
       CALL allocate_species_bp_lists(species)
       CALL associate_partners(species, .TRUE.)
+    END DO
+    PRINT '(A,I2)', ">>> removing zero weights                     rank==",rank
+    DO ispecies = 1, n_species
+      species => species_list(ispecies)
+      CALL remove_alone_partners(species)
     END DO
     initial_association = .TRUE.
     PRINT '(A,I2)', ">>> done associating partners for rank==",rank
