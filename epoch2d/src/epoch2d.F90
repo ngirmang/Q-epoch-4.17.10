@@ -55,6 +55,9 @@ PROGRAM pic
 #ifdef BREMSSTRAHLUNG
   USE bremsstrahlung
 #endif
+#ifdef NEWPML
+  USE boundary
+#endif
 
   IMPLICIT NONE
 
@@ -126,6 +129,9 @@ PROGRAM pic
   CALL initialise_window ! window.f90
   CALL set_dt
   CALL set_maxwell_solver
+#ifdef NEWPML
+  CALL set_newpml
+#endif
   CALL deallocate_ic
   CALL update_particle_count
 
@@ -181,39 +187,6 @@ PROGRAM pic
 
   IF (timer_collect) CALL timer_start(c_timer_step)
   
-  ! added
-  IF (rank == 0) THEN
-     PRINT '(a,es11.3)', "dt = ", dt
-     PRINT '(a,es11.3)', "dx = ", dx
-     PRINT '(a,es11.3)', "dy = ", dy
-     PRINT '(a,i3,a,i3)', "nx_global,ny_global = ",nx_global,",",ny_global
-     IF (nproc == 1) THEN
-       PRINT '(a)', 'we only have one process'
-       PRINT '(a,i3,a,i3,a)', "shape of ex: (", size(ex,1),",",size(ex,2),")"
-       PRINT '(a,i3)', "number of ghost cells: ", ng
-       PRINT '(a,es11.3,a,es11.3)', "x(0),x(1)  =", x(0),",", x(1)
-       PRINT '(a,es11.3,a,es11.3)', "xb(0),xb(1)=", xb(0),",", xb(1)
-     END IF
-     DO ispecies = 1,n_species
-        PRINT '(a,i2,a,es11.3,a,es11.3,a,es11.3)', &
-             ">>>> species",ispecies," has omega binding=", &
-             species_list(ispecies)%harmonic_omega(1), ",", &
-             species_list(ispecies)%harmonic_omega(2), ",", &
-             species_list(ispecies)%harmonic_omega(3)
-        PRINT '(a,i2,a,es11.3,a,es11.3,a,es11.3)', &
-             ">>>> species",ispecies," has gamma binding=", &
-             species_list(ispecies)%harmonic_gamma(1), ",", &
-             species_list(ispecies)%harmonic_gamma(2), ",", &
-             species_list(ispecies)%harmonic_gamma(3)
-        PRINT '(a,i2,a,f5.1)', &
-             ">>>> species",ispecies," has bfield factor=", &
-             species_list(ispecies)%bfield_sample_factor
-        PRINT '(a,i2,a,f4.1)', &
-             ">>>> species",ispecies," has npart_per_cell=", &
-             species_list(ispecies)%npart_per_cell
-     END DO
-  END IF
-  ! end added
   DO
     IF ((step >= nsteps .AND. nsteps >= 0) &
         .OR. (time >= t_end) .OR. halt) EXIT
@@ -244,6 +217,9 @@ PROGRAM pic
       ! .FALSE. this time to use load balancing threshold
       IF (use_balance) CALL balance_workload(.FALSE.)
       CALL push_particles
+#ifdef BOUND_HARMONIC
+      CALL check_bound_particles
+#endif
       IF (use_particle_lists) THEN
         ! After this line, the particles can be accessed on a cell by cell basis
         ! Using the particle_species%secondary_list property

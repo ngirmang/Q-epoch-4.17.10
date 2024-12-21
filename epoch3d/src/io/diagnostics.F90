@@ -577,6 +577,7 @@ CONTAINS
         CALL sdf_write_srl(sdf_handle, 'boundary_thickness_zmax', &
             'Boundary thickness z_max', cpml_thicknesses(6))
 #endif
+
         CALL write_field(c_dump_cpml_psi_eyx, code, 'cpml_psi_eyx', &
             'CPML/Ey_x', 'A/m^2', c_stagger_cell_centre, cpml_psi_eyx)
         CALL write_field(c_dump_cpml_psi_ezx, code, 'cpml_psi_ezx', &
@@ -777,6 +778,7 @@ CONTAINS
 
 #endif
         CALL write_particle_grid(code)
+
 
         ! These are derived variables from the particles
         CALL write_nspecies_field(c_dump_ekbar, code, &
@@ -1946,32 +1948,8 @@ CONTAINS
         END IF
         new_dims = (/ ranges(2,1) - ranges(1,1), ranges(2,2) - ranges(1,2), &
             ranges(2,3) - ranges(1,3) /)
-        ! !added
-        ! oldranges = global_ranges(sub)
-        ! !print '(a,I3,a,6ES11.3)', '(rank=',rank,')oldranges=',&
-        ! !    oldranges(1,1),oldranges(2,1),oldranges(1,2),oldranges(2,2),&
-        ! !    oldranges(1,3),oldranges(2,3)
-        ! !end added
         ranges = cell_local_ranges(global_ranges(sub))
         ran_sec = cell_section_ranges(ranges) + 1
-        ! !added
-        ! if (ranges(1,1) <= ranges(2,1)) then
-        !   print '(a,I2,a,6I4)', '(rank=',rank,')ranges =',&
-        !        ranges(1,1),ranges(2,1),ranges(1,2),ranges(2,2),&
-        !        ranges(1,3),ranges(2,3)
-        !   print '(a,I2,a,6I4)', '(rank=',rank,')ran_sec=',&
-        !        ran_sec(1,1),ran_sec(2,1),ran_sec(1,2),ran_sec(2,2),&
-        !        ran_sec(1,3),ran_sec(2,3)
-        !   print '(a,I2,a,6ES11.3)', '(rank=',rank,')lims=',&
-        !        dir_min_local(1),dir_max_local(1),&
-        !        dir_min_local(2),dir_max_local(2),&
-        !        dir_min_local(3),dir_max_local(3)
-        !   print '(a,I2,a,3I4)', '(rank=',rank,')shape(array)=',&
-        !        shape(array)
-        !   print '(a,I2,a,4I4)', '(rank=',rank,')nx,ny,nz,ng=',&
-        !        nx,ny,nz,ng
-        ! endif
-        ! !end added
         
         IF (convert) THEN
           rsubtype  = sub%subtype_r4
@@ -2003,16 +1981,6 @@ CONTAINS
           k1 = k0
         END IF
 
-        !!added
-        !if (ranges(1,1) <= ranges(2,1)) then
-        !  print '(a,I2,a,3I4,a,6I4)', '(rank=',rank,')newdims=',&
-        !       new_dims,' i0,i1,j0,j1,k0,k1=', &
-        !       i0,i1,j0,j1,k0,k1
-        !endif
-        !
-        !
-        !CALL abort_code(c_err_none)
-        !!end added
         CALL sdf_write_plain_variable(sdf_handle, TRIM(temp_block_id), &
             TRIM(temp_name), TRIM(units), new_dims, stagger, &
             TRIM(temp_grid_id), array(i0:i1,j0:j1,k0:k1), &

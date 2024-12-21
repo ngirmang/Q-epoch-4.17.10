@@ -450,6 +450,17 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'deck_warnings_fatal')) THEN
       all_deck_errcodes_fatal = as_logical_print(value, element, errcode)
+#ifdef BOUND_HARMONIC
+
+    ELSE IF (str_cmp(element, 'bound_safe_factor')) THEN
+      bound_safe_factor = as_real_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'check_bound_interval')) THEN
+      check_bound_interval = as_integer_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'print_ionisation_counts')) THEN
+      print_ionisation_counts = as_logical_print(value, element, errcode)
+#endif
 
     ELSE
       errcode = c_err_unknown_element

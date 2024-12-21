@@ -89,6 +89,19 @@ MODULE shared_data
   ! block of the deck using 'particle_tstart'.
   REAL(num) :: particle_push_start_time = 0.0_num
 
+#ifdef BOUND_HARMONIC
+
+  ! bound_safe_factor sets the allowance of large oscillations of bound species
+  REAL(num) :: bound_safe_factor = 0.25 ! 4 cells ought to be enough for anyone
+  INTEGER :: check_bound_interval = 0
+  ! redo pointer list here due to it being in particles
+  ! some day we do this not by ugly hack, consolidate in a type of particle.
+  TYPE bp_item
+    TYPE(bp_item), POINTER  :: next
+    TYPE(particle), POINTER :: p
+  END TYPE bp_item
+  LOGICAL :: initial_association = .FALSE.
+#endif
   ! Object representing a particle
   ! If you add or remove from this section then you *must* update the
   ! particle pack and unpack routines
@@ -144,6 +157,9 @@ MODULE shared_data
 #endif
 #ifdef BOUND_HARMONIC
     REAL(num), DIMENSION(3) :: part_ip
+
+    TYPE(bp_item), POINTER :: partners_head
+    INTEGER :: partner_count = -1 !number of partners bound to this particle
 #endif
   END TYPE particle
 
@@ -224,11 +240,15 @@ MODULE shared_data
     LOGICAL :: atomic_no_set = .FALSE.
 #endif
 #ifdef BOUND_HARMONIC
-    REAL(num), DIMENSION(3) :: harmonic_omega = &
-         (/0.0_num, 0.0_num, 0.0_num/)
-    REAL(num), DIMENSION(3) :: harmonic_gamma = &
-         (/0.0_num, 0.0_num, 0.0_num/)
+    REAL(num), DIMENSION(3) :: harmonic_omega = 0.0_num
+    REAL(num), DIMENSION(3) :: harmonic_gamma = 0.0_num
     REAL(num) :: bfield_sample_factor = 1.0_num
+
+    INTEGER, DIMENSION(:), POINTER :: bound_to
+    LOGICAL :: dont_transfer_cpu
+    REAL(num) :: diminish_factor
+
+    LOGICAL :: medium_species = .FALSE.
 #endif
 
     ! Specify if species is background species or not
@@ -425,7 +445,11 @@ MODULE shared_data
   END TYPE particle_probe
 #endif
 
+#ifndef NEWPML
   INTEGER :: cpml_thickness
+#else
+  INTEGER :: cpml_thicknesses(6)
+#endif
   INTEGER :: cpml_x_min_start, cpml_x_min_end, cpml_x_min_offset
   INTEGER :: cpml_x_max_start, cpml_x_max_end, cpml_x_max_offset
   INTEGER :: cpml_y_min_start, cpml_y_min_end, cpml_y_min_offset
@@ -448,6 +472,19 @@ MODULE shared_data
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: cpml_psi_byx, cpml_psi_bzx
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: cpml_psi_exy, cpml_psi_ezy
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: cpml_psi_bxy, cpml_psi_bzy
+#ifdef CONSTEPS
+
+  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: iepsx, iepsy, iepsz
+  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: medium_factor
+  INTEGER :: medium_eps_mode = -1
+#endif
+#ifdef NEWPML
+  REAL(num) pml_thickness_real(6)
+  REAL(num) :: newpml_coeff_a = 0.d0, newpml_coeff_m = 0.d0
+  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: pml_inv, pml_eye, pml_sig
+  LOGICAL  use_newpml, use_manualpml
+  LOGICAL :: floating_laser=.FALSE.
+#endif!NEWPML
 
   !----------------------------------------------------------------------------
   ! Core code
@@ -555,9 +592,20 @@ MODULE shared_data
   REAL(num) :: coulomb_log
   LOGICAL :: coulomb_log_auto, use_collisions
   LOGICAL :: use_nanbu = .TRUE.
+#ifdef COLL_ELECCHECK
+  LOGICAL :: quick_check_elec
+  INTEGER :: quick_check_ispecies = -1
+#endif
 
   LOGICAL :: use_field_ionisation, use_collisional_ionisation
   LOGICAL :: use_multiphoton, use_bsi
+#ifdef BOUND_HARMONIC
+  LOGICAL :: print_ionisation_counts = .FALSE.
+  INTEGER, DIMENSION(:), ALLOCATABLE :: field_ionisation_counts
+  INTEGER, DIMENSION(:), ALLOCATABLE :: coll_ionisation_counts
+  INTEGER, DIMENSION(:), ALLOCATABLE :: last_field_ionisation_counts
+  INTEGER, DIMENSION(:), ALLOCATABLE :: last_coll_ionisation_counts
+#endif
 
   INTEGER :: maxwell_solver = c_maxwell_solver_yee
   REAL(num) :: dt_custom

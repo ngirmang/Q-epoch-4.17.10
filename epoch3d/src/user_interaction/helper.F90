@@ -104,10 +104,6 @@ CONTAINS
     TYPE(particle_species), POINTER :: species
     INTEGER :: i0, i1, iu, io
     TYPE(initial_condition_block), POINTER :: ic
-#ifdef BOUND_HARMONIC
-    
-#endif
-
     
     IF (pre_loading .AND. n_species > 0) THEN
       i0 = 1 - ng
@@ -667,9 +663,12 @@ CONTAINS
     ! The following loop randomly place remaining particles into valid cells.
     IF (npart_left > 0) THEN
 #ifdef BOUND_HARMONIC
-      PRINT '(a)', '*** ERROR ***'
-      PRINT '(a)', 'Remaining particles after load, only use npart_per_cell'
-      PRINT '(a)', 'with -DBOUND_HARMONIC'
+      IF (rank == 0) THEN
+        PRINT '(a)', "*** ERROR ***"
+        PRINT '(a)', "Remaining particles after load, only use npart_per_cell"
+        PRINT '(a)', "with -DBOUND_HARMONIC. This shouldn't happen, perhaps try"
+        PRINT '(a)', "perturbing the initialisation density of the bound species."
+      END IF
       CALL abort_code(c_err_bad_value)
 #endif
       ALLOCATE(valid_cell_list(num_valid_cells_local))
@@ -939,8 +938,11 @@ CONTAINS
   END SUBROUTINE setup_particle_density
 #endif
 
+
+
 #ifdef BOUND_HARMONIC
   SUBROUTINE allocate_species_bp_lists(species)
+
     TYPE(particle_species), INTENT(IN) :: species
     TYPE(particle), POINTER :: current
     TYPE(bp_item), POINTER :: cur_bp
@@ -999,8 +1001,11 @@ CONTAINS
     IF (rank == 0) PRINT '(a,a)', "done for ", TRIM(species%name)
 #endif
   END SUBROUTINE allocate_species_bp_lists
-  
+
+
+
   SUBROUTINE remove_bp_item(ion, bp)
+
     TYPE(particle), POINTER, INTENT(IN) :: ion
     TYPE(bp_item), POINTER, INTENT(IN)  :: bp
     TYPE(bp_item), POINTER :: prev,cur
@@ -1029,7 +1034,10 @@ CONTAINS
     PRINT *, "warning: remove_bp_item and bp is not found"
   END SUBROUTINE remove_bp_item
 
+
+
   FUNCTION pos_to_cell(r)
+
     INTEGER pos_to_cell(3)
     REAL(num), DIMENSION(3), INTENT(IN) :: r
     REAL(num) dr(3)
@@ -1037,6 +1045,8 @@ CONTAINS
     dr = dr / (/dx,dy,dz/) + 0.5_num
     pos_to_cell = FLOOR(dr)
   END FUNCTION pos_to_cell
+
+
 
   SUBROUTINE associate_partners(species,check)
 
@@ -1144,7 +1154,10 @@ CONTAINS
     END IF
   END SUBROUTINE associate_partners
 
+
+
   SUBROUTINE remove_alone_partners(species)
+
     TYPE(particle_species), POINTER, INTENT(IN) :: species
     TYPE(particle), POINTER :: current, next
     INTEGER before, after
@@ -1164,6 +1177,8 @@ CONTAINS
            before, "to", after," for rank == ",rank
     END IF
   END SUBROUTINE remove_alone_partners
+
+
 
   SUBROUTINE associate_partners_restart
 
@@ -1188,8 +1203,9 @@ CONTAINS
     PRINT '(A,I2)', ">>> done associating partners for rank==",rank
 
   END SUBROUTINE associate_partners_restart
-
 #endif
+
+
 
   FUNCTION sample_dist_function(axis, dist_fn)
 

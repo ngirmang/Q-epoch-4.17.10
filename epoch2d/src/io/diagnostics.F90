@@ -230,6 +230,10 @@ CONTAINS
         (/'x_max', 'y_max', 'z_max', 'x_min', 'y_min', 'z_min'/)
     INTEGER, DIMENSION(6) :: fluxdir = &
         (/c_dir_x, c_dir_y, c_dir_z, -c_dir_x, -c_dir_y, -c_dir_z/)
+#ifdef BOUND_HARMONIC
+    INTEGER :: noldfield, ncurfield, noldcoll, ncurcoll
+    LOGICAL :: ionis_header_printed
+#endif
 
     ! Clean-up any cached RNG state
     CALL random_flush_cache
@@ -279,6 +283,58 @@ CONTAINS
                 'fields were not output.'
         skipped_any_set = .FALSE.
       END IF
+#ifdef BOUND_HARMONIC
+      IF (print_ionisation_counts .AND. stdout_frequency > 0 &
+           .AND. MOD(step, stdout_frequency) == 0) THEN
+        ionis_header_printed = .FALSE.
+        DO ispecies=1,n_species
+          i = field_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, ncurfield, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+          i = last_field_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, noldfield, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+          i = coll_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, ncurcoll, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+          i = last_coll_ionisation_counts(ispecies)
+          CALL MPI_ALLREDUCE(i, noldcoll, 1, MPI_INTEGER, MPI_SUM, &
+               comm, errcode)
+
+
+          IF (rank == 0 .AND. (ncurfield+ncurcoll) > 0) THEN
+            IF ( .NOT. ionis_header_printed) THEN
+              PRINT '(A)', &
+                   " Ionisation produced the following macroparticles "//&
+                   "(and delta since last printing):"
+              PRINT '(A)', &
+!                            1        2         3         4         5
+!                   1234567890123456789012345678901234567890123456789012
+                   '               field ionis.         collisional ionis.'
+              ionis_header_printed = .TRUE.
+            END IF
+
+            WRITE (*, '(A,A12,A,I9)', advance='no') &
+                 '  ', TRIM(species_list(ispecies)%name),': ', ncurfield
+            IF ((ncurfield - noldfield) > 0) THEN
+              n = ncurfield - noldfield
+              WRITE(*, '(A,SP,I7,S,A)',advance='no') ' (',n,')'
+            ELSE
+              WRITE(*, '(A10)',advance='no') ''
+            END IF
+            WRITE (*, '(A,I9)', advance='no') ' ', ncurcoll
+            IF ((ncurcoll - noldcoll) > 0) THEN
+              n = ncurcoll - noldcoll
+              WRITE(*, '(A,SP,I7,S,A)') ' (',n,')'
+            ELSE
+              WRITE(*, '(A9)') ''
+            END IF
+          END IF
+        END DO
+        last_field_ionisation_counts = field_ionisation_counts
+        last_coll_ionisation_counts = coll_ionisation_counts
+      END IF
+#endif
     END IF
 
     IF (n_io_blocks <= 0) RETURN
@@ -496,8 +552,23 @@ CONTAINS
           c_stagger_jz, jz)
 
       IF (cpml_boundaries) THEN
+#ifndef NEWPML
         CALL sdf_write_srl(sdf_handle, 'boundary_thickness', &
             'Boundary thickness', cpml_thickness)
+#else
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_xmin', &
+            'Boundary thickness x_min', cpml_thicknesses(1))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_xmax', &
+            'Boundary thickness x_max', cpml_thicknesses(2))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_ymin', &
+            'Boundary thickness y_min', cpml_thicknesses(3))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_ymax', &
+            'Boundary thickness y_max', cpml_thicknesses(4))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_zmin', &
+            'Boundary thickness z_min', cpml_thicknesses(5))
+        CALL sdf_write_srl(sdf_handle, 'boundary_thickness_zmax', &
+            'Boundary thickness z_max', cpml_thicknesses(6))
+#endif
 
         CALL write_field(c_dump_cpml_psi_eyx, code, 'cpml_psi_eyx', &
             'CPML/Ey_x', 'A/m^2', c_stagger_cell_centre, cpml_psi_eyx)
@@ -679,6 +750,17 @@ CONTAINS
             'Time_Integrated_Work_y', 'J', it_output_real)
         CALL write_particle_variable(c_dump_part_work_z_total, code, &
             'Time_Integrated_Work_z', 'J', it_output_real)
+#endif
+#ifdef BOUND_HARMONIC
+        CALL write_particle_variable(c_dump_part_ix, code, &
+             "ix", 'm', it_output_real)
+        CALL write_particle_variable(c_dump_part_iy, code, &
+             "iy", 'm', it_output_real)
+        CALL write_particle_variable(c_dump_part_iz, code, &
+             "iz", 'm', it_output_real)
+
+        CALL write_particle_variable(c_dump_part_pos_z, code, &
+             "pos_z", "m", it_output_real)
 #endif
         CALL write_particle_grid(code)
 

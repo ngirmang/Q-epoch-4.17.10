@@ -21,6 +21,9 @@ MODULE ionise
   USE mpi
   USE utilities
   USE boundary
+#ifdef BOUND_HARMONIC
+  USE helper
+#endif
 
   IMPLICIT NONE
 
@@ -54,6 +57,9 @@ CONTAINS
     INTEGER :: i, io, iu, bessel_error, err_laser
     LOGICAL :: laser_set
     TYPE(laser_block), POINTER :: current_laser
+#ifdef SIMPLE_ADK
+    LOGICAL :: ionised_species_present
+#endif
 
     IF (use_multiphoton) THEN
       err_laser = 0
@@ -167,8 +173,14 @@ CONTAINS
         multi_constant(n_species), k_photons_energy(n_species), &
         k_photons_exponent(n_species), adk_multiphoton_cap(n_species))
 
+#ifdef SIMPLE_ADK
+    ionised_species_present = .FALSE.
+#endif
     DO i = 1, n_species
       IF (species_list(i)%ionise) THEN
+#ifdef SIMPLE_ADK
+        ionised_species_present = .TRUE.
+#endif
         ! Mass fraction of released electron
         released_mass_fraction(i) = &
             species_list(species_list(i)%release_species)%mass &
@@ -312,6 +324,10 @@ CONTAINS
         END IF
       END IF
     END DO
+#ifdef SIMPLE_ADK
+    IF (ionised_species_present .AND. rank==0)&
+         PRINT '(A)', ">> using simplified ADK"
+#endif
 
   END SUBROUTINE initialise_ionisation
 
@@ -394,6 +410,9 @@ CONTAINS
     REAL(num) :: part_x, cell_x_r, cell_frac_x, idx
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
     LOGICAL :: multiphoton_ionised
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -571,6 +590,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -600,6 +622,11 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -649,6 +676,12 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
+#endif
         END IF
         current => next
       END DO
@@ -676,6 +709,9 @@ CONTAINS
     REAL(num) :: part_x, cell_x_r, cell_frac_x, idx
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
     LOGICAL :: multiphoton_ionised
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -840,6 +876,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -918,6 +957,12 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
+#endif
         END IF
         current => next
       END DO
@@ -944,6 +989,9 @@ CONTAINS
     REAL(num) :: gy(sf_min:sf_max), hy(sf_min:sf_max)
     REAL(num) :: part_x, cell_x_r, cell_frac_x, idx
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -1112,6 +1160,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -1132,6 +1183,12 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
+
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -1176,6 +1233,12 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
+#endif
         END IF
         current => next
       END DO
@@ -1202,6 +1265,9 @@ CONTAINS
     REAL(num) :: gy(sf_min:sf_max), hy(sf_min:sf_max)
     REAL(num) :: part_x, cell_x_r, cell_frac_x, idx
     REAL(num) :: part_y, cell_y_r, cell_frac_y, idy
+#ifdef BOUND_HARMONIC
+    INTEGER :: irelease
+#endif
 
     TYPE(particle), POINTER :: current, new, next
     TYPE(particle_list) :: ionised_list(n_species)
@@ -1215,6 +1281,15 @@ CONTAINS
 #else
     REAL(num) :: cf2
     REAL(num), PARAMETER :: fac = (0.5_num)**c_ndims
+#endif
+#ifdef SIMPLE_ADK
+    REAL(num) :: scaled_epart
+
+    IF (rank == 0) THEN
+      PRINT "(A)", "***ERROR***"
+      PRINT "(A)", "SIMPLE_ADK isn't tested in ionise"
+    END IF
+    CALL abort_code()
 #endif
 
     idx = 1.0_num / dx
@@ -1356,6 +1431,9 @@ CONTAINS
               new%weight = current%weight
 #endif
               new%part_pos = current%part_pos
+#ifdef BOUND_HARMONIC
+              new%part_ip = new%part_pos
+#endif
               ! Electron is released without acceleration so simply use momentum
               ! conservation to split the particle
               new%part_p = current%part_p &
@@ -1376,6 +1454,11 @@ CONTAINS
               ! Put electron into particle lists
               CALL add_particle_to_partlist(species_list(species_list( &
                   current_state)%release_species)%attached_list, new)
+#ifdef BOUND_HARMONIC
+              irelease = species_list(current_state)%release_species
+              field_ionisation_counts(irelease) = &
+                   field_ionisation_counts(irelease) + 1
+#endif
             END IF
             ! Calculates the time of ionisation using inverse sampling, and
             ! subtracts it from the time step. Ensures diminishing time for
@@ -1420,6 +1503,12 @@ CONTAINS
             END DO
             END DO
           END IF
+#ifdef BOUND_HARMONIC
+          field_ionisation_counts(current_state) = &
+               field_ionisation_counts(current_state) + 1
+          ! for ionised particle, diminsh their partners
+          CALL diminish_partners(current, species_list(i)%diminish_factor)
+#endif
         END IF
         current => next
       END DO
@@ -1432,5 +1521,56 @@ CONTAINS
     ! Put ionised particles back into partlists
 
   END SUBROUTINE tunnelling
+
+#ifdef BOUND_HARMONIC
+
+
+  SUBROUTINE diminish_partners(ion, diminish_factor, collisions)
+
+    TYPE(particle), POINTER, INTENT(IN) :: ion
+    REAL(num), INTENT(in) :: diminish_factor
+    LOGICAL, OPTIONAL :: collisions
+    TYPE(particle), POINTER :: partner
+    TYPE(bp_item), POINTER :: cur_bp, next
+    INTEGER, SAVE :: laststep = -1, laststep_coll = -1
+    LOGICAL :: diminished
+    REAL(num), PARAMETER :: epsmin = c_small_weight
+
+    diminished = .FALSE.
+    cur_bp => ion%partners_head
+
+    !IF (laststep /= step) &
+    !     PRINT '(A, I2, A, I5)', "rank=",rank,": diminished at step ", step
+    DO WHILE (ASSOCIATED(cur_bp))
+      partner => cur_bp%p
+      next    => cur_bp%next
+      partner%weight = partner%weight*(1.0_num - diminish_factor)
+      IF (partner%weight < epsmin) THEN
+        ! remove bp_item for particle to be logically unpartnered
+        partner%weight = 0.0_num
+        partner%partner_count = partner%partner_count - 1
+        CALL remove_bp_item(ion, cur_bp)
+        NULLIFY(cur_bp%p, cur_bp%next)
+        DEALLOCATE(cur_bp)
+      END IF
+      cur_bp => next
+      diminished = .TRUE.
+    END DO
+
+#ifdef VERBOSE_BNDHARM
+    IF (PRESENT(collisions) .AND. collisions) THEN
+      IF (laststep_coll /= step .AND. diminished) THEN
+        PRINT '(A, I2, A, I5)', "rank=",rank,": collisional diminsh at step ", step
+      END IF
+      laststep_coll = laststep
+    ELSE
+      IF (laststep /= step .AND. diminished) THEN
+        PRINT '(A, I2, A, I5)', "rank=",rank,": field diminsh at step ", step
+      END IF
+      laststep = step
+    END IF
+#endif
+  END SUBROUTINE diminish_partners
+#endif
 
 END MODULE ionise

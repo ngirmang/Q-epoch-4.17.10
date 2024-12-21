@@ -26,7 +26,7 @@ MODULE particles
   
   PRIVATE
   
-  PUBLIC :: push_particles, f0
+  PUBLIC :: push_particles, f0, check_bound_particles, clean_diminished_parts
 #if defined(PHOTONS) || defined(BREMSSTRAHLUNG)
   PUBLIC :: push_photons
 #endif !photons
@@ -39,10 +39,6 @@ MODULE particles
 
 CONTAINS
 #ifdef BOUND_HARMONIC
-  REAL(num) FUNCTION zero_small(x) 
-    REAL(num), INTENT(in) :: x
-    zero_small = x
-  END FUNCTION zero_small
   PURE FUNCTION bsq(ibx,iby,ibz)
     REAL(num), INTENT(in) :: ibx, iby, ibz
     REAL(num) bsq(3,3)
@@ -59,6 +55,7 @@ CONTAINS
   PURE FUNCTION crossB(ibx,iby,ibz)
     REAL(num), INTENT(in) :: ibx, iby, ibz
     REAL(num) crossB(3,3)
+    crossB = 0.0d0
     crossB(1,2) = ibz
     crossB(1,3) =-iby
     crossB(2,3) = ibx
@@ -184,7 +181,7 @@ CONTAINS
          Bdotprod,     &! B dot B*(1 + dt*gamma/2)
          detLm,        &! det(L_-)
          detLm_m_Bdot, &! determinant without Bdotprod
-         lx, ly, lz         ! x, y, z of offst from binding centre
+         dlx(3)         ! x, y, z of offst from binding centre
     REAL(num) :: bfield_factor
     REAL(num), DIMENSION(3,3) :: vm2vp, gminv
 #endif
@@ -320,14 +317,10 @@ CONTAINS
         part_y = part_y + part_uy * root
 #ifdef BOUND_HARMONIC
         part_z = current%part_pos(3) + part_uz * root
-        
+
         ! should this also be at half step?
-        lx = current%part_pos(1) + part_ux*root - current%part_ip(1)
-        !lx = lx + part_ux*root 
-        ly = current%part_pos(2) + part_uy*root - current%part_ip(2)
-        !ly = ly + part_uy*root
-        lz = current%part_pos(3) + part_uz*root - current%part_ip(3)
-        !lz = lz + part_uz*root 
+        dlx = current%part_pos - current%part_ip
+        dlx = dlx + (/part_ux, part_uy, part_uz/)*root
 #endif
         
 #ifdef WORK_DONE_INTEGRATED
@@ -413,9 +406,9 @@ CONTAINS
         uzm = part_uz + cmratio * ez_part
 #ifdef BOUND_HARMONIC
         ! add lorentzian omega terms
-        uxm = uxm - lomegasq_dto2c(1)*lx
-        uym = uym - lomegasq_dto2c(2)*ly
-        uzm = uzm - lomegasq_dto2c(3)*lz
+        uxm = uxm - lomegasq_dto2c(1)*dlx(1)
+        uym = uym - lomegasq_dto2c(2)*dlx(2)
+        uzm = uzm - lomegasq_dto2c(3)*dlx(3)
 #endif
 
 #ifdef HC_PUSH
@@ -494,20 +487,11 @@ CONTAINS
         part_uz = uzp + cmratio * ez_part
 #ifdef BOUND_HARMONIC
         ! add lorentzian omega terms
-        part_ux = part_ux - lomegasq_dto2c(1)*lx
-        part_uy = part_uy - lomegasq_dto2c(2)*ly
-        part_uz = part_uz - lomegasq_dto2c(3)*lz
+        part_ux = part_ux - lomegasq_dto2c(1)*dlx(1)
+        part_uy = part_uy - lomegasq_dto2c(2)*dlx(2)
+        part_uz = part_uz - lomegasq_dto2c(3)*dlx(3)
 #endif
 
-! #ifdef BOUND_HARMONIC
-!         ! Harmonic force first
-!         part_ux = part_ux - ho_omega(1)**2*ho_x*dt/c
-!         part_uy = part_uy - ho_omega(2)**2*ho_y*dt/c
-!         ! Dampen after all forces
-!         part_ux = part_ux*(1-dt*ho_gamma(1))
-!         part_uy = part_uy*(1-dt*ho_gamma(2))
-!         part_uz = part_uz*(1-dt*ho_gamma(3))
-! #endif
         ! Calculate particle velocity from particle momentum
         part_u2 = part_ux**2 + part_uy**2 + part_uz**2
         gamma_rel = SQRT(part_u2 + 1.0_num)
@@ -706,6 +690,59 @@ CONTAINS
 
   END SUBROUTINE push_particles
 
+#ifdef BOUND_HARMONIC
+  SUBROUTINE check_bound_particles
+    INTEGER ispecies,ipart
+    TYPE(particle), POINTER :: current
+    REAL(num), DIMENSION(3) :: omega, gamma, dlx, part_u, maxd
+    REAL(num) part_m
+
+    IF (check_bound_interval == 0 &
+        .OR. MOD(step, check_bound_interval) > 0) RETURN
+    IF (rank == 0) PRINT "(A,I6.6)", "checking bound at step = ", step
+
+    maxd = (/dx, dy, (dx+dy)/2 /) / bound_safe_factor
+
+    DO ispecies = 1, n_species
+      omega = species_list(ispecies)%harmonic_omega
+      gamma = species_list(ispecies)%harmonic_gamma
+#ifndef PER_PARTICLE_CHARGE_MASS
+      part_m   = species_list(ispecies)%mass
+#endif
+      IF (ALL(omega == 0.0_num)) CYCLE
+      current => species_list(ispecies)%attached_list%head
+
+      DO ipart = 1, species_list(ispecies)%attached_list%count
+        IF (current%weight == 0.0_num) THEN
+          current => current%next
+          CYCLE
+        END IF
+#ifdef PER_PARTICLE_CHARGE_MASS
+        part_m = current%mass
+#endif
+        dlx = current%part_pos - current%part_ip
+        
+        IF (ANY(ABS(dlx) > maxd)) THEN
+          part_u = current%part_p / (part_m * c)
+          PRINT '(a)', '***ERROR***'
+          PRINT '(a, 3ES13.5)', "dlx value large =", dlx
+          PRINT '(A, F5.2, A, 3ES13.5)', "for dxs/", bound_safe_factor, &
+               " = ", maxd
+          PRINT '(A, I3)',"  rank = ", rank
+          PRINT '(a, a)', "  species = ", TRIM(species_list(ispecies)%name)
+          PRINT '(a, I4)', "  step = ", step
+          PRINT '(a, 3ES13.5)', "  ux,uy,uz= ", part_u
+          PRINT '(a, 3ES13.5)', "  part_pos=", current%part_pos
+          PRINT '(a, 3ES13.5)', "  part_ip=", current%part_ip
+          PRINT '(a, 3ES13.5)', "  omega=", omega
+          PRINT '(a, 3ES13.5)', "  gamma=", gamma
+          CALL abort_code(c_err_bad_value)
+        END IF
+        current => current%next
+      END DO
+    END DO
+  END SUBROUTINE check_bound_particles
+#endif
 
 
   ! Background distribution function used for delta-f calculations.
@@ -835,6 +872,39 @@ CONTAINS
     END DO
 
   END SUBROUTINE push_photons
+#endif
+#ifdef BOUND_HARMONIC
+  SUBROUTINE clean_diminished_parts
+    TYPE(particle_species), POINTER :: species
+    TYPE(particle), POINTER :: current, next
+    REAL(num), PARAMETER :: epsmin = c_small_weight
+    INTEGER i, nremoved
+
+    DO i=1,n_species
+      current => species_list(i)%attached_list%head
+      nremoved = 0
+      DO WHILE (ASSOCIATED(current))
+        next => current%next
+        IF (current%partner_count == 0 .AND. current%weight == 0) THEN
+          ! no partners and zeroweight, physically diminished and
+          ! all partners unlinked pointer wise, so we can remove from the simulation
+          ! safely
+          CALL remove_particle_from_partlist(species_list(i)%attached_list,&
+               current)
+          CALL destroy_particle(current)
+          nremoved = nremoved + 1
+        END IF
+        current => next
+      END DO
+      IF (nremoved > 0) THEN
+#ifdef VERBOSE_BNDHARM
+        PRINT '(A,I2,A,I5.5,A,A)', &
+             "rank=",rank," clean_diminished_parts: removed ",nremoved,&
+             " from species ", TRIM(species_list(i)%name)
+#endif
+      END IF
+    END DO ! species
+  END SUBROUTINE clean_diminished_parts
 #endif
 
 END MODULE particles

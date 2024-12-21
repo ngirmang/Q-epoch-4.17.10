@@ -60,6 +60,11 @@ MODULE deck_species_block
   REAL(num), DIMENSION(:), POINTER :: bfield_sample_factor
   INTEGER, DIMENSION(c_ndims) :: species_dir_nparts
   INTEGER, DIMENSION(:,:), POINTER :: dir_nparts
+
+  INTEGER :: n_bound_partners
+  REAL(num), DIMENSION(:), POINTER :: r_bound_partners ! sigh...
+  INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
+
 #endif
   INTEGER, DIMENSION(2*c_ndims) :: species_bc_particle
 
@@ -140,6 +145,15 @@ CONTAINS
         species_list(i)%dir_nparts = dir_nparts(:,i)
 #endif
       END DO
+#ifdef BOUND_HARMONIC
+      IF (rank == 0) THEN
+        DO i = 1, n_species
+          PRINT '(a,a,3ES9.2)', TRIM(species_list(i)%name),&
+               ' omega=', species_list(i)%harmonic_omega
+        END DO
+      END IF
+
+#endif
 
       DEALLOCATE(bc_particle_array)
       DEALLOCATE(dumpmask_array)
@@ -321,6 +335,12 @@ CONTAINS
     IF (deck_state == c_ds_first) RETURN
     species_id = species_blocks(current_block)
     offset = 0
+#ifdef BOUND_HARMONIC
+    species_dir_nparts = 0
+    species_bfield_sample_factor = 1.0_num
+    species_harmonic_om = 0.0_num
+    species_harmonic_gm = 0.0_num
+#endif
 
   END SUBROUTINE species_block_start
 
@@ -356,6 +376,11 @@ CONTAINS
       harmonic_gm(:,n_species) = species_harmonic_gm
       bfield_sample_factor(n_species) = species_bfield_sample_factor
       dir_nparts(:,n_species) = species_dir_nparts
+
+      species_harmonic_om = 0.0_num
+      species_harmonic_gm = 0.0_num
+      species_bfield_sample_factor = 1.0_num
+      species_dir_nparts = 0
 #endif
       IF (n_secondary_species_in_block > 0) THEN
         ! Create an empty species for each ionisation energy listed in species
@@ -530,6 +555,38 @@ CONTAINS
     END IF
 
     IF (deck_state == c_ds_first) RETURN
+#ifdef BOUND_HARMONIC
+
+    ! bound_partners must be set after the end.
+    IF (str_cmp(element, 'bound_partners')) THEN
+      IF ( .NOT. ASSOCIATED(r_bound_partners) ) &
+           ALLOCATE(r_bound_partners(n_species))
+
+      CALL initialise_stack(stack)
+      CALL tokenize(value, stack, errcode)
+      CALL evaluate_and_return_all(stack, &
+           n_bound_partners, r_bound_partners, errcode)
+      CALL deallocate_stack(stack)
+      ! really...
+      ALLOCATE(species_list(species_id)%bound_to(n_bound_partners))
+      DO i=1,n_bound_partners
+        species_list(species_id)%bound_to(i) = NINT(r_bound_partners(i),i8)
+      END DO
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'dont_transfer_cpu')) THEN
+      species_list(species_id)%dont_transfer_cpu = &
+           as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'diminish_factor')) THEN
+      species_list(species_id)%diminish_factor = as_real_print(&
+           value, element, errcode)
+      RETURN
+    END IF
+#endif
 
     ! This sets up whether or not to use the MJ sampler for a species.
     ! It could go in the first deck pass, but that requires more temporary
@@ -1183,7 +1240,7 @@ CONTAINS
     INTEGER :: errcode
     INTEGER :: i, io, iu
 #ifdef BOUND_HARMONIC
-    INTEGER(i8) :: n
+    INTEGER(i8) :: n, ndir(2), npc
 #endif
 
     errcode = check_block
@@ -1262,15 +1319,16 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     ! check species ndir allocation factorisation (essentially)
     DO i = 1, n_species
-      n = species_list(i)%dir_nparts(1)*species_list(i)%dir_nparts(2)
-      IF (n > 0 .AND. IDNINT(species_list(i)%npart_per_cell) /= n) THEN
+      ndir = species_list(i)%dir_nparts
+      IF ( ANY(ndir == 0) ) CYCLE
+      npc = IDNINT(species_list(i)%npart_per_cell)
+      n = ndir(1)*ndir(2)
+      IF (npc /= n) THEN
         PRINT '(a)', '*** ERROR ***'
         PRINT '(a,I3)', '*dir_npart_per_cell do not match for species ', i
         PRINT '(a,I3,a,I3,a,I4,a,I4,a)', &
-             'xdir*ydir = ', &
-             species_list(i)%dir_nparts(1), '*', species_list(i)%dir_nparts(2), &
-             '=', n, '/=', &
-             IDNINT(species_list(i)%npart_per_cell), '= npart_per_cell'
+             'xdir*ydir = ', ndir(1), '*', ndir(2), '=', n, '/=', npc, &
+             '= npart_per_cell'
         errcode = c_err_bad_value
       END IF
     END DO

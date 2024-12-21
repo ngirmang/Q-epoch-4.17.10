@@ -423,6 +423,7 @@ CONTAINS
     ny_global = ny_global + cpml_thicknesses(3) + cpml_thicknesses(4)
     nz_global = nz_global + cpml_thicknesses(5) + cpml_thicknesses(6)
 #endif
+
     IF (use_exact_restart) THEN
       old_x_max(nprocx) = nx_global
       cell_x_max = old_x_max
@@ -553,6 +554,7 @@ CONTAINS
     ALLOCATE(iepsy(1-ng:nx+ng, 1-ng:ny+ng, 1-ng:nz+ng))
     ALLOCATE(iepsz(1-ng:nx+ng, 1-ng:ny+ng, 1-ng:nz+ng))
 #endif
+
     ! Setup the particle lists
     IF (n_species > 0) &
         NULLIFY(species_list(1)%prev, species_list(n_species)%next)

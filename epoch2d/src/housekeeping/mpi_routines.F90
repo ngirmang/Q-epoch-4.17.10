@@ -277,7 +277,12 @@ CONTAINS
     INTEGER :: nx0, nxp
     INTEGER :: ny0, nyp
 
+#ifdef NEWPML
+    IF (.NOT.(cpml_boundaries .OR. use_newpml)) &
+         cpml_thicknesses = 0
+#else
     IF (.NOT.cpml_boundaries) cpml_thickness = 0
+#endif
 
     CALL split_domain
 
@@ -287,8 +292,13 @@ CONTAINS
     ALLOCATE(cell_x_min(nprocx), cell_x_max(nprocx))
     ALLOCATE(cell_y_min(nprocy), cell_y_max(nprocy))
 
+#ifndef NEWPML
     nx_global = nx_global + 2 * cpml_thickness
     ny_global = ny_global + 2 * cpml_thickness
+#else
+    nx_global = nx_global + cpml_thicknesses(1) + cpml_thicknesses(2)
+    ny_global = ny_global + cpml_thicknesses(3) + cpml_thicknesses(4)
+#endif
 
     IF (use_exact_restart) THEN
       old_x_max(nprocx) = nx_global
@@ -381,6 +391,11 @@ CONTAINS
     ALLOCATE(jx(1-jng:nx+jng, 1-jng:ny+jng))
     ALLOCATE(jy(1-jng:nx+jng, 1-jng:ny+jng))
     ALLOCATE(jz(1-jng:nx+jng, 1-jng:ny+jng))
+#ifdef CONSTEPS
+    ALLOCATE(iepsx(1-ng:nx+ng, 1-ng:ny+ng))
+    ALLOCATE(iepsy(1-ng:nx+ng, 1-ng:ny+ng))
+    ALLOCATE(iepsz(1-ng:nx+ng, 1-ng:ny+ng))
+#endif
 
     ! Setup the particle lists
     IF (n_species > 0) &

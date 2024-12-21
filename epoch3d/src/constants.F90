@@ -209,6 +209,17 @@ MODULE constants
   INTEGER, PARAMETER :: c_dir_x = 1
   INTEGER, PARAMETER :: c_dir_y = 2
   INTEGER, PARAMETER :: c_dir_z = 3
+#ifdef BOUND_HARMONIC
+  INTEGER, PARAMETER :: c_dir_px = 3 + 1
+  INTEGER, PARAMETER :: c_dir_py = 3 + 2
+  INTEGER, PARAMETER :: c_dir_pz = 3 + 3
+  INTEGER, PARAMETER :: c_dir_en = 3 + 4
+  INTEGER, PARAMETER :: c_dir_gamma_m1 = 3 + 5
+  INTEGER, PARAMETER :: c_dir_xy_angle = 3 + 6
+  INTEGER, PARAMETER :: c_dir_yz_angle = 3 + 7
+  INTEGER, PARAMETER :: c_dir_zx_angle = 3 + 8
+  INTEGER, PARAMETER :: c_dir_mod_p = 3 + 9
+#else
   INTEGER, PARAMETER :: c_dir_px = c_ndims + 1
   INTEGER, PARAMETER :: c_dir_py = c_ndims + 2
   INTEGER, PARAMETER :: c_dir_pz = c_ndims + 3
@@ -218,6 +229,7 @@ MODULE constants
   INTEGER, PARAMETER :: c_dir_yz_angle = c_ndims + 7
   INTEGER, PARAMETER :: c_dir_zx_angle = c_ndims + 8
   INTEGER, PARAMETER :: c_dir_mod_p = c_ndims + 9
+#endif
 
   ! constants defining the maximum number of dimensions and directions
   ! in a distribution function
@@ -577,7 +589,7 @@ MODULE constants
   INTEGER, PARAMETER :: c_dump_part_ix           = 72
   INTEGER, PARAMETER :: c_dump_part_iy           = 73
   INTEGER, PARAMETER :: c_dump_part_iz           = 74
-  INTEGER, PARAMETER :: num_vars_to_dump         = 75
+  INTEGER, PARAMETER :: num_vars_to_dump         = 74
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 71
 #endif

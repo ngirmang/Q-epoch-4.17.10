@@ -149,9 +149,10 @@ CONTAINS
       IF (rank == 0) THEN
         DO i = 1, n_species
           PRINT '(a,a,3ES9.2)', TRIM(species_list(i)%name),&
-               ' ', species_list(i)%harmonic_omega
+               ' omega=', species_list(i)%harmonic_omega
         END DO
       END IF
+
 #endif
       DEALLOCATE(bc_particle_array)
       DEALLOCATE(dumpmask_array)
@@ -578,11 +579,6 @@ CONTAINS
       END DO
       RETURN
     END IF
-
-!  ! epsilon resetter
-!   IF (str_cmp(element, 'dielectric_reduce')) THEN
-!
-!   END IF
 
     IF (str_cmp(element, 'dont_transfer_cpu')) THEN
       species_list(species_id)%dont_transfer_cpu = &

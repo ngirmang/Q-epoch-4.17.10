@@ -174,7 +174,6 @@ CONTAINS
       
     ELSE IF (str_cmp(element, 'cpml_z_max')) THEN
       cpml_thicknesses(6) = as_integer_print(value, element, errcode)
-      
 #endif
 
     ELSE IF (str_cmp(element, 'cpml_kappa_max')) THEN
@@ -187,7 +186,6 @@ CONTAINS
       cpml_sigma_max = as_real_print(value, element, errcode)
 
 #ifdef NEWPML
-
     ELSE IF (str_cmp(element, 'use_newpml')) THEN
       use_newpml = as_logical_print(value, element, errcode)
       
@@ -196,6 +194,7 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'newpml_coeff_m')) THEN
       newpml_coeff_m = as_real_print(value, element, errcode)
+
 #endif!NEWPML
     ELSE
       errcode = c_err_unknown_element

@@ -77,7 +77,11 @@ CONTAINS
     dt_plasma_frequency = 0.0_num
     dt_multiplier = 0.95_num
     stdout_frequency = 0
+#ifdef NEWPML
+    cpml_thicknesses = 0
+#else
     cpml_thickness = 6
+#endif
     cpml_kappa_max = 20.0_num
     cpml_a_max = 0.15_num
     cpml_sigma_max = 0.7_num
@@ -168,6 +172,7 @@ CONTAINS
     INTEGER :: ix, iy
     REAL(num) :: xb_min, yb_min
 
+#ifndef NEWPML
     length_x = x_max - x_min
     dx = length_x / REAL(nx_global-2*cpml_thickness, num)
     x_grid_min = x_min - dx * cpml_thickness
@@ -175,6 +180,15 @@ CONTAINS
     length_y = y_max - y_min
     dy = length_y / REAL(ny_global-2*cpml_thickness, num)
     y_grid_min = y_min - dy * cpml_thickness
+#else
+    length_x = x_max - x_min
+    dx = length_x / REAL(nx_global-cpml_thicknesses(1)-cpml_thicknesses(2), num)
+    x_grid_min = x_min - dx * cpml_thicknesses(1)
+
+    length_y = y_max - y_min
+    dy = length_y / REAL(ny_global-cpml_thicknesses(3)-cpml_thicknesses(4), num)
+    y_grid_min = y_min - dy * cpml_thicknesses(3)
+#endif
 
     ! Shift grid to cell centres.
     ! At some point the grid may be redefined to be node centred.
@@ -226,8 +240,36 @@ CONTAINS
       CALL allocate_cpml_fields
       CALL set_cpml_helpers(nx, nx_global_min, nx_global_max, &
           ny, ny_global_min, ny_global_max)
+#ifdef NEWPML
+    ELSE IF (use_newpml) THEN
+      IF (rank==0) PRINT '(A,ES8.1,A,ES8.1)', "Using new pml, A=", &
+           newpml_coeff_A, ", m=", newpml_coeff_m
+      CALL prep_newpml_helpers(nx, nx_global_min, nx_global_max, &
+          ny, ny_global_min, ny_global_max)
+      cpml_kappa_max = 1.0_num
+      cpml_a_max = 0.0_num
+      cpml_sigma_max = 0.0_num
+      DO i = 1, n_io_blocks
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_eyx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_ezx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_byx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bzx) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_exy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_ezy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bxy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bzy) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_exz) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_eyz) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_bxz) = c_io_never
+        io_block_list(i)%dumpmask(c_dump_cpml_psi_byz) = c_io_never
+      END DO
+#endif!NEWPML
     ELSE
+#ifdef NEWPML
+      cpml_thicknesses=0
+#else
       cpml_thickness = 0
+#endif
       cpml_kappa_max = 1.0_num
       cpml_a_max = 0.0_num
       cpml_sigma_max = 0.0_num
@@ -345,6 +387,15 @@ CONTAINS
       NULLIFY(species_list(ispecies)%secondary_list)
       NULLIFY(species_list(ispecies)%background_density)
       species_list(ispecies)%bc_particle = c_bc_null
+#ifdef BOUND_HARMONIC
+      NULLIFY(species_list(ispecies)%bound_to)
+      species_list(ispecies)%dont_transfer_cpu = .FALSE.
+      species_list(ispecies)%diminish_factor = 0.0_num
+      species_list(ispecies)%harmonic_omega = 0.0_num
+      species_list(ispecies)%harmonic_gamma = 0.0_num
+      species_list(ispecies)%bfield_sample_factor = 1.0_num
+      species_list(ispecies)%dir_nparts = 0
+#endif
     END DO
 
     DO ispecies = 1, n_species
@@ -387,6 +438,17 @@ CONTAINS
       NULLIFY(species_list(ispecies)%attached_probes)
 #endif
     END DO
+#ifdef BOUND_HARMONIC
+
+    ALLOCATE(field_ionisation_counts(n_species))
+    ALLOCATE(last_field_ionisation_counts(n_species))
+    field_ionisation_counts = 0
+    last_field_ionisation_counts = 0
+    ALLOCATE(coll_ionisation_counts(n_species))
+    ALLOCATE(last_coll_ionisation_counts(n_species))
+    coll_ionisation_counts = 0
+    last_coll_ionisation_counts = 0
+#endif
 
   END SUBROUTINE setup_species
 
@@ -567,6 +629,12 @@ CONTAINS
     jy = 0.0_num
     jz = 0.0_num
 
+#ifdef CONSTEPS
+    iepsx = 1.0_num
+    iepsy = 1.0_num
+    iepsz = 1.0_num
+
+#endif
     ! Set up random number seed
     seed = 7842432
     IF (use_random_seed) CALL SYSTEM_CLOCK(seed)
@@ -1170,12 +1238,21 @@ CONTAINS
             y_min = extents(2)
             y_max = extents(c_ndims+2)
 
+#ifndef NEWPML
             dx = (x_max - x_min) / nx_global
             x_min = x_min + dx * cpml_thickness
             x_max = x_max - dx * cpml_thickness
             dy = (y_max - y_min) / ny_global
             y_min = y_min + dy * cpml_thickness
             y_max = y_max - dy * cpml_thickness
+#else
+            dx = (x_max - x_min) / nx_global
+            x_min = x_min + dx * cpml_thicknesses(1)
+            x_max = x_max - dx * cpml_thicknesses(2)
+            dy = (y_max - y_min) / ny_global
+            y_min = y_min + dy * cpml_thicknesses(3)
+            y_max = y_max - dy * cpml_thicknesses(4)
+#endif
 
             IF (str_cmp(block_id, 'grid_full')) THEN
               got_full = .TRUE.
@@ -1328,6 +1405,24 @@ CONTAINS
         ELSE IF (block_id(1:3) == 'pz/') THEN
           CALL sdf_read_point_variable(sdf_handle, npart_local, &
               species_subtypes(ispecies), it_pz)
+#ifdef BOUND_HARMONIC
+
+        ELSE IF (block_id(1:3) == 'ix/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_ix)
+
+        ELSE IF (block_id(1:3) == 'iy/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_iy)
+
+        ELSE IF (block_id(1:3) == 'iz/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_iz)
+
+        ELSE IF (block_id(1:6) == 'pos_z/') THEN
+          CALL sdf_read_point_variable(sdf_handle, npart_local, &
+              species_subtypes(ispecies), it_posz)
+#endif !BOUND_HARMONIC
 
         ELSE IF (block_id(1:3) == 'id/') THEN
 #if defined(PARTICLE_ID) || defined(PARTICLE_ID4)
@@ -1455,6 +1550,9 @@ CONTAINS
     CALL set_thermal_bcs_all
     CALL setup_persistent_subsets
     CALL setup_background_species
+#ifdef BOUND_HARMONIC
+    CALL associate_partners_restart
+#endif
 
     IF (rank == 0) PRINT*, 'Load from restart dump OK'
 
@@ -1725,6 +1823,87 @@ CONTAINS
     it_pz = 0
 
   END FUNCTION it_pz
+#ifdef BOUND_HARMONIC
+
+
+
+  FUNCTION it_ix(array, npart_this_it, start, param)
+
+    REAL(num) :: it_ix
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_ip(1) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_ix = 0
+
+  END FUNCTION it_ix
+
+
+
+  FUNCTION it_iy(array, npart_this_it, start, param)
+
+    REAL(num) :: it_iy
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_ip(2) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_iy = 0
+
+  END FUNCTION it_iy
+
+
+
+  FUNCTION it_iz(array, npart_this_it, start, param)
+
+    REAL(num) :: it_iz
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_ip(3) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_iz = 0
+
+  END FUNCTION it_iz
+
+
+  FUNCTION it_posz(array, npart_this_it, start, param)
+
+    REAL(num) :: it_posz
+    REAL(num), DIMENSION(:), INTENT(IN) :: array
+    INTEGER, INTENT(INOUT) :: npart_this_it
+    LOGICAL, INTENT(IN) :: start
+    INTEGER, INTENT(IN), OPTIONAL :: param
+    INTEGER :: ipart
+
+    DO ipart = 1, npart_this_it
+      iterator_list%part_pos(3) = array(ipart)
+      iterator_list => iterator_list%next
+    END DO
+
+    it_posz = 0
+
+  END FUNCTION it_posz
+#endif
 
 
 

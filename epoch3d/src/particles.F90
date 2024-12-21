@@ -318,9 +318,7 @@ CONTAINS
         part_ux = current%part_p(1) * ipart_mc
         part_uy = current%part_p(2) * ipart_mc
         part_uz = current%part_p(3) * ipart_mc
-!#ifdef BOUND_HARMONIC
-!       pre_part_pos = current%part_pos        
-!#endif
+
         ! Calculate v(t) from p(t)
         ! See PSC manual page (25-27)
         gamma_rel = SQRT(part_ux**2 + part_uy**2 + part_uz**2 + 1.0_num)
@@ -611,37 +609,6 @@ CONTAINS
           dcellx = cell_x3 - cell_x1
           dcelly = cell_y3 - cell_y1
           dcellz = cell_z3 - cell_z1
-#ifdef BOUND_HARMONIC
-          ! tmp = current%part_pos - pre_part_pos
-          ! IF ( part_weight > 0.0_num .AND. &
-          !      ANY(ABS(lomegasq_dto2c) > 0.0_num) .AND. &
-          !      ANY(ABS(tmp) > maxd)) THEN
-          !   PRINT '(a)', '***ERROR***'
-          !   PRINT '(a, 3ES13.5)', "dpos value large = ", tmp
-          !   PRINT '(A, F4.1, A, 3ES13.5)', "for dxs/", safe_factor, " = ", maxd
-          !   PRINT '(a, a)', "  species = ", species_list(ispecies)%name
-          !   PRINT '(a, 3ES13.5)', "  pre_part_pos=", pre_part_pos
-          !   PRINT '(a, 3ES13.5)', "  part_pos=", current%part_pos
-          !   PRINT '(a, 3ES13.5)', "  part_ip=", current%part_ip
-          !   PRINT '(a, 3ES13.5)', "  upvec=", upvec
-          !   PRINT '(a, 3ES13.5)', "  dlx=", dlx
-          !   PRINT '(a, ES13.5)',  "  Bdotprod=", Bdotprod
-          !   CALL abort_code(c_err_bad_value)
-          ! END IF
-          ! IF (dcellx > 2 .OR. dcellx < -2) THEN
-          !   PRINT '(a)', '***ERROR***'
-          !   PRINT '(a)', "I've fallen, and I can't get up."
-          !   PRINT '(A)', "abs(dcellx) is larger than 2 cells!!!1"
-          !   PRINT '(a,I14)', "dcellx = ", dcellx
-          !   PRINT '(a, 3ES13.5)', "pre_part_pos=", pre_part_pos
-          !   PRINT '(a, 3ES13.5)', "part_pos=", current%part_pos
-          !   PRINT '(a, 3ES13.5)', "part_ip=", current%part_ip
-          !   PRINT '(a, 3ES13.5)', "upvec=", upvec
-          !   PRINT '(a, 3ES13.5)', "dlx=", dlx
-          !   PRINT '(a, ES13.5)',  "Bdotprod=", Bdotprod
-          !   CALL abort_code(c_err_bad_value)
-          ! END IF
-#endif
           ! NOTE: These weights require an additional multiplication factor!
 #ifdef PARTICLE_SHAPE_BSPLINE3
 #include "bspline3/hx_dcell.inc"

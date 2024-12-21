@@ -400,7 +400,7 @@ CONTAINS
     y_min_local = y_grid_min_local + (cpml_y_min_offset - 0.5_num) * dy
     y_max_local = y_grid_max_local - (cpml_y_max_offset - 0.5_num) * dy
 
-#ifndef NEWPML    
+#ifndef NEWPML
     boundary_shift = REAL((1 + png + cpml_thickness) / 2, num)
 #endif
     
@@ -419,7 +419,9 @@ CONTAINS
   SUBROUTINE setup_grid_z
 
     INTEGER :: iproc
+#ifndef NEWPML
     REAL(num) :: boundary_shift
+#endif
 
     ! Setup local grid
     z(1-ng:nz+ng) = z_global(nz_global_min-ng:nz_global_max+ng)

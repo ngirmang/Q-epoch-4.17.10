@@ -428,6 +428,19 @@ CONTAINS
 
     CALL setup_grid_x
     CALL setup_grid_y
+#ifdef NEWPML
+    IF (use_newpml) THEN
+      IF (rank == 0) THEN
+        PRINT "(A)", "calling from balance.F90"
+        PRINT "(A,I4)", "size(x)= ", size(x)
+      END IF
+      IF (ALLOCATED(pml_inv)) DEALLOCATE(pml_inv, pml_eye, pml_sig)
+      CALL prep_newpml_helpers(&
+          nx, nx_global_min, nx_global_max, &
+          ny, ny_global_min, ny_global_max)
+      CALL set_newpml
+    END IF
+#endif!NEWPML
 
   END SUBROUTINE redistribute_domain
 
@@ -515,6 +528,24 @@ CONTAINS
     DEALLOCATE(ez)
     ALLOCATE(ez(1-ng:nx_new+ng, 1-ng:ny_new+ng))
     ez = temp
+#ifdef CONSTEPS
+
+    CALL remap_field(iepsx, temp)
+    DEALLOCATE(iepsx)
+    ALLOCATE(iepsx(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+    iepsx = temp
+
+    CALL remap_field(iepsy, temp)
+    DEALLOCATE(iepsy)
+    ALLOCATE(iepsy(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+    iepsy = temp
+
+    CALL remap_field(iepsz, temp)
+    DEALLOCATE(iepsz)
+    ALLOCATE(iepsz(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+    iepsz = temp
+#endif
+
 
     CALL remap_field(bx, temp)
     DEALLOCATE(bx)

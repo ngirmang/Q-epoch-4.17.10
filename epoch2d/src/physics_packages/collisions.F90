@@ -23,6 +23,9 @@ MODULE collisions
 #ifdef PREFETCH
   USE prefetch
 #endif
+#ifdef BOUND_HARMONIC
+  use ionise
+#endif
 
   IMPLICIT NONE
 
@@ -253,6 +256,14 @@ CONTAINS
     END DO ! ix
     END DO ! iy
 
+#ifdef COLL_ELECCHECK
+    IF (quick_check_elec .AND. quick_check_ispecies /= -1) THEN
+      IF (species_list(quick_check_ispecies)%count == 0) THEN
+        RETURN
+      END IF
+    END IF
+
+#endif
     ALLOCATE(idens(1-ng:nx+ng,1-ng:ny+ng))
     ALLOCATE(jdens(1-ng:nx+ng,1-ng:ny+ng))
     ALLOCATE(e_dens(1-ng:nx+ng,1-ng:ny+ng))
@@ -388,11 +399,20 @@ CONTAINS
           DO iy = 1, ny
           DO ix = 1, nx
             ! Perform collisional ionisation before calculating scatter
+#ifdef BOUND_HARMONIC
+            CALL preionise(species_list(jspecies)%secondary_list(ix,iy), &
+                species_list(ispecies)%secondary_list(ix,iy), &
+                species_list(ion_species)%secondary_list(ix,iy), &
+                ionising_e, ejected_e, m2, m1, q2, q1, jdens(ix,iy), &
+                q_full, ionisation_energy, n1, n2, l, &
+                ispecies)
+#else
             CALL preionise(species_list(jspecies)%secondary_list(ix,iy), &
                 species_list(ispecies)%secondary_list(ix,iy), &
                 species_list(ion_species)%secondary_list(ix,iy), &
                 ionising_e, ejected_e, m2, m1, q2, q1, jdens(ix,iy), &
                 q_full, ionisation_energy, n1, n2, l)
+#endif
             ! Scatter ionising impact electrons off of ejected target electrons
             ! unless specified otherwise in input deck
             IF (e_user_factor > 0.0_num) THEN
@@ -423,11 +443,20 @@ CONTAINS
           DO iy = 1, ny
           DO ix = 1, nx
             ! Perform collisional ionisation before calculating scatter
+#ifdef BOUND_HARMONIC
+            CALL preionise(species_list(ispecies)%secondary_list(ix,iy), &
+                species_list(jspecies)%secondary_list(ix,iy), &
+                species_list(ion_species)%secondary_list(ix,iy), &
+                ionising_e, ejected_e, m1, m2, q1, q2, idens(ix,iy), &
+                q_full, ionisation_energy, n1, n2, l, &
+                jspecies)
+#else
             CALL preionise(species_list(ispecies)%secondary_list(ix,iy), &
                 species_list(jspecies)%secondary_list(ix,iy), &
                 species_list(ion_species)%secondary_list(ix,iy), &
                 ionising_e, ejected_e, m1, m2, q1, q2, idens(ix,iy), &
                 q_full, ionisation_energy, n1, n2, l)
+#endif
             ! Scatter ionising impact electrons off of ejected target electrons
             ! unless specified otherwise in input deck
             IF (e_user_factor > 0.0_num) THEN
@@ -478,9 +507,15 @@ CONTAINS
 
 
 #ifndef PER_SPECIES_WEIGHT
+#ifdef BOUND_HARMONIC
+  SUBROUTINE preionise(electrons, ions, ionised, ionising_e, &
+      ejected_e, e_mass, ion_mass, e_charge, ion_charge, e_dens, &
+      full_ion_charge, ionisation_energy, n1, n2, l, ionspecies)
+#else
   SUBROUTINE preionise(electrons, ions, ionised, ionising_e, &
       ejected_e, e_mass, ion_mass, e_charge, ion_charge, e_dens, &
       full_ion_charge, ionisation_energy, n1, n2, l)
+#endif
 
     TYPE(particle_list), INTENT(INOUT) :: electrons, ions, ionised
     TYPE(particle_list), INTENT(INOUT) :: ionising_e, ejected_e
@@ -490,6 +525,12 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: n1, n2, l
 
+#ifdef BOUND_HARMONIC
+    INTEGER, INTENT(IN) :: ionspecies
+
+    INTEGER :: irelease, inext
+    REAL(num) :: diminish_factor
+#endif
     TYPE(particle), POINTER :: electron, ion, ejected_electron, next_ion, next_e
 
     LOGICAL, DIMENSION(:), ALLOCATABLE :: lost_ke, was_ionised
@@ -499,6 +540,13 @@ CONTAINS
         e_v_i, mrbeb_c, t, tp, bp, bt2, bb2
     REAL(num) :: ionisation_energy_inv, red_ion_inv, prob_factor, denominator
     INTEGER(KIND=8) :: e_count, ion_count, pcount, i, k
+#ifdef BOUND_HARMONIC
+
+    irelease = species_list(ionspecies)%release_species
+    inext = species_list(ionspecies)%ionise_to_species
+
+    diminish_factor = species_list(ionspecies)%diminish_factor
+#endif
 
     ! Inter-species collisions
     e_count = electrons%count
@@ -710,6 +758,15 @@ CONTAINS
 #ifdef PARTICLE_DEBUG
           ejected_electron%processor = rank
           ejected_electron%processor_at_t0 = rank
+#endif
+#ifdef BOUND_HARMONIC
+          ejected_electron%part_ip = ejected_electron%part_pos
+
+          coll_ionisation_counts(irelease) = &
+               coll_ionisation_counts(irelease) + 1
+          coll_ionisation_counts(inext) = &
+               coll_ionisation_counts(inext) + 1
+          CALL diminish_partners(ion, diminish_factor, .TRUE.)
 #endif
           CALL add_particle_to_partlist(ejected_e, ejected_electron)
           CALL remove_particle_from_partlist(ions, ion)

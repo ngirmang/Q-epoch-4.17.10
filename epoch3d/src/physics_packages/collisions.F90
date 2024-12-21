@@ -263,12 +263,12 @@ CONTAINS
     END DO ! iz
 
 #ifdef COLL_ELECCHECK
-
     IF (quick_check_elec .AND. quick_check_ispecies /= -1) THEN
       IF (species_list(quick_check_ispecies)%count == 0) THEN
         RETURN
       END IF
     END IF
+
 #endif
     ALLOCATE(idens(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
     ALLOCATE(jdens(1-ng:nx+ng,1-ng:ny+ng,1-ng:nz+ng))
@@ -410,10 +410,10 @@ CONTAINS
           DO ix = 1, nx
             ! Perform collisional ionisation before calculating scatter
 #ifdef BOUND_HARMONIC
-            CALL preionise(species_list(ispecies)%secondary_list(ix,iy,iz), &
-                species_list(jspecies)%secondary_list(ix,iy,iz), &
+            CALL preionise(species_list(jspecies)%secondary_list(ix,iy,iz), &
+                species_list(ispecies)%secondary_list(ix,iy,iz), &
                 species_list(ion_species)%secondary_list(ix,iy,iz), &
-                ionising_e, ejected_e, m1, m2, q1, q2, idens(ix,iy,iz), &
+                ionising_e, ejected_e, m2, m1, q2, q1, jdens(ix,iy,iz), &
                 q_full, ionisation_energy, n1, n2, l, &
                 ispecies)
 #else
@@ -557,7 +557,7 @@ CONTAINS
 #ifdef BOUND_HARMONIC
 
     irelease = species_list(ionspecies)%release_species
-    inext= species_list(ionspecies)%ionise_to_species
+    inext = species_list(ionspecies)%ionise_to_species
 
     diminish_factor = species_list(ionspecies)%diminish_factor
 #endif

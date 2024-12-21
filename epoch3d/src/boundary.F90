@@ -1413,9 +1413,6 @@ CONTAINS
         CALL field_zero_gradient(by, c_stagger_by, i)
         CALL field_zero_gradient(bz, c_stagger_bz, i)
       END IF
-#ifdef NEWPML
-      !!!!!!!!! HERE
-#endif
     END DO
 
   END SUBROUTINE bfield_bcs
@@ -1537,7 +1534,6 @@ CONTAINS
            initial_association) CYCLE
       IF (species_list(ispecies)%dont_transfer_cpu .AND. &
            initial_association) CYCLE
-      
 #endif
       cur => species_list(ispecies)%attached_list%head
 
@@ -3343,9 +3339,9 @@ CONTAINS
     z_max_local = z_grid_max_local - (cpml_z_max_offset - 0.5_num) * dz
 
   END SUBROUTINE prep_newpml_helpers
-  
+
 #endif!NEWPML
-  
+
 
   SUBROUTINE deallocate_cpml_helpers
 

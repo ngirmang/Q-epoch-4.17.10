@@ -221,7 +221,6 @@ CONTAINS
 !          medium_eps_mode = c_epsmode_explicit
 !     RETURN
 !   END IF
-    
 #endif
 
   END FUNCTION fields_block_handle_element

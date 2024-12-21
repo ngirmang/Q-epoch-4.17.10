@@ -204,7 +204,6 @@ CONTAINS
     length_z = z_max - z_min
     dz = length_z / REAL(nz_global-cpml_thicknesses(5)-cpml_thicknesses(6), num)
     z_grid_min = z_min - dz * cpml_thicknesses(5)
-    
 #endif
 
     ! Shift grid to cell centres.
@@ -1329,6 +1328,7 @@ CONTAINS
             y_max = extents(c_ndims+2)
             z_min = extents(3)
             z_max = extents(c_ndims+3)
+
 #ifndef NEWPML
             dx = (x_max - x_min) / nx_global
             x_min = x_min + dx * cpml_thickness
@@ -1667,6 +1667,7 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     CALL associate_partners_restart
 #endif
+
     IF (rank == 0) PRINT*, 'Load from restart dump OK'
 
   END SUBROUTINE restart_data

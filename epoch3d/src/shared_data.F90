@@ -474,8 +474,8 @@ MODULE shared_data
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: cpml_psi_bxy, cpml_psi_bzy
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: cpml_psi_exz, cpml_psi_eyz
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: cpml_psi_bxz, cpml_psi_byz
-
 #ifdef CONSTEPS
+
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: iepsx, iepsy, iepsz
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: medium_factor
   INTEGER :: medium_eps_mode = -1
@@ -487,6 +487,7 @@ MODULE shared_data
   LOGICAL  use_newpml, use_manualpml
   LOGICAL :: floating_laser=.FALSE.
 #endif!NEWPML
+
   !----------------------------------------------------------------------------
   ! Core code
   !----------------------------------------------------------------------------

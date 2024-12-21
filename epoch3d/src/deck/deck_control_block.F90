@@ -479,7 +479,6 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'print_ionisation_counts')) THEN
       print_ionisation_counts = as_logical_print(value, element, errcode)
-
 #endif
 
     ELSE

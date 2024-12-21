@@ -1665,7 +1665,10 @@ CONTAINS
   END SUBROUTINE tunnelling
 
 #ifdef BOUND_HARMONIC
+
+
   SUBROUTINE diminish_partners(ion, diminish_factor, collisions)
+
     TYPE(particle), POINTER, INTENT(IN) :: ion
     REAL(num), INTENT(in) :: diminish_factor
     LOGICAL, OPTIONAL :: collisions
