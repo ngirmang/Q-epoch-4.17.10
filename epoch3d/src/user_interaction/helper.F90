@@ -667,7 +667,8 @@ CONTAINS
         PRINT '(a)', "*** ERROR ***"
         PRINT '(a)', "Remaining particles after load, only use npart_per_cell"
         PRINT '(a)', "with -DBOUND_HARMONIC. This shouldn't happen, perhaps try"
-        PRINT '(a)', "perturbing the initialisation density of the bound species."
+        PRINT '(a)', "perturbing the initialisation density of"&
+             //"the bound species."
       END IF
       CALL abort_code(c_err_bad_value)
 #endif
