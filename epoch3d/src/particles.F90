@@ -154,6 +154,9 @@ CONTAINS
     INTEGER :: ispecies, ix, iy, iz, dcellx, dcelly, dcellz, cx, cy, cz
     INTEGER(i8) :: ipart
 #ifdef WORK_DONE_INTEGRATED
+#ifdef NONLIN
+#error "WORK_DONE_INTEGRATED currently incompatible with NONLIN"
+#endif
     REAL(num) :: tmp_x, tmp_y, tmp_z
     REAL(num) :: work_x, work_y, work_z
 #endif
@@ -191,6 +194,11 @@ CONTAINS
     REAL(num) :: bfield_factor
     REAL(num), DIMENSION(3,3) :: vm2vp, gminv
     !REAL(num) pre_part_pos(3),tmp(3)
+#ifdef NONLIN
+    REAL(num) :: fnl3, esq_part, elinfac
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
 
 #ifdef PREFETCH
@@ -282,6 +290,10 @@ CONTAINS
       gminv(1,1) = one_m_lg(1)*one_p_lg(2)*one_p_lg(3)
       gminv(2,2) = one_p_lg(1)*one_m_lg(2)*one_p_lg(3)
       gminv(3,3) = one_p_lg(1)*one_p_lg(2)*one_m_lg(3)
+#ifdef NONLIN
+      fnl3 = species_list(ispecies)%nl_alpha3 * dtfac / c !dto2 or dtfac ???
+      elinfac = species_list(ispecies)%linear_factor
+#endif
 #endif
       !DEC$ VECTOR ALWAYS
       DO ipart = 1, species_list(ispecies)%attached_list%count
@@ -421,16 +433,31 @@ CONTAINS
 #include "triangle/e_part.inc"
 #include "triangle/b_part.inc"
 #endif
-
-        ! update particle momenta using weighted fields
+        
+! update particle momenta using weighted fields
+#if defined(BOUND_HARMONIC) && defined(NONLIN)
+        uxm = part_ux + cmratio * ex_part * elinfac
+        uym = part_uy + cmratio * ey_part * elinfac
+        uzm = part_uz + cmratio * ez_part * elinfac
+#else
         uxm = part_ux + cmratio * ex_part
         uym = part_uy + cmratio * ey_part
         uzm = part_uz + cmratio * ez_part
+#endif
 #ifdef BOUND_HARMONIC
         ! add lorentzian omega terms
         uxm = uxm - lomegasq_dto2c(1)*dlx(1)
         uym = uym - lomegasq_dto2c(2)*dlx(2)
         uzm = uzm - lomegasq_dto2c(3)*dlx(3)
+#ifdef NONLIN
+        !third order nonlinearity for now
+        esq_part = ex_part**2 + ey_part**2 + ez_part**2
+        uxm = uxm + fnl3 * esq_part * ex_part
+        uym = uym + fnl3 * esq_part * ey_part
+        uzm = uzm + fnl3 * esq_part * ez_part
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
         
 #ifdef HC_PUSH
@@ -504,14 +531,29 @@ CONTAINS
 #endif !BOUND_HARMONIC
         
         ! Rotation over, go to full timestep
+#if defined(BOUND_HARMONIC) && defined(NONLIN)
+        part_ux = uxp + cmratio * ex_part * elinfac
+        part_uy = uyp + cmratio * ey_part * elinfac
+        part_uz = uzp + cmratio * ez_part * elinfac
+#else
         part_ux = uxp + cmratio * ex_part
         part_uy = uyp + cmratio * ey_part
         part_uz = uzp + cmratio * ez_part
+#endif
 #ifdef BOUND_HARMONIC
         ! add lorentzian omega terms
         part_ux = part_ux - lomegasq_dto2c(1)*dlx(1)
         part_uy = part_uy - lomegasq_dto2c(2)*dlx(2)
         part_uz = part_uz - lomegasq_dto2c(3)*dlx(3)
+#ifdef NONLIN
+        !third order nonlinearity for now
+        esq_part = ex_part**2 + ey_part**2 + ez_part**2
+        part_ux = part_ux + fnl3 * esq_part * ex_part
+        part_uy = part_uy + fnl3 * esq_part * ey_part
+        part_uz = part_uz + fnl3 * esq_part * ez_part
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
 
         ! Calculate particle velocity from particle momentum

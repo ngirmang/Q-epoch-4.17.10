@@ -60,7 +60,13 @@ MODULE deck_species_block
   REAL(num), DIMENSION(:), POINTER :: bfield_sample_factor
   INTEGER, DIMENSION(c_ndims) :: species_dir_nparts
   INTEGER, DIMENSION(:,:), POINTER :: dir_nparts
-
+#ifdef NONLIN
+  REAL(num) :: species_nl_alpha3
+  REAL(num), DIMENSION(:), POINTER :: nl_alpha3
+  REAL(num) :: species_linear_factor
+  REAL(num), DIMENSION(:), POINTER :: linear_factor
+#endif
+  
   INTEGER :: n_bound_partners
   REAL(num), DIMENSION(:), POINTER :: r_bound_partners ! sigh...
   INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
@@ -96,6 +102,14 @@ CONTAINS
       bfield_sample_factor = 1.0_num
       ALLOCATE(dir_nparts(c_ndims,4))
       dir_nparts = 0
+#ifdef NONLIN
+      ALLOCATE(nl_alpha3(4))
+      nl_alpha3 = 0
+      ALLOCATE(linear_factor(4))
+      linear_factor = 1.0_num
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
       release_species = ''
     END IF
@@ -143,6 +157,10 @@ CONTAINS
         species_list(i)%harmonic_gamma = harmonic_gm(:,i)
         species_list(i)%bfield_sample_factor = bfield_sample_factor(i)
         species_list(i)%dir_nparts = dir_nparts(:,i)
+#ifdef NONLIN
+        species_list(i)%nl_alpha3 = nl_alpha3(i)
+        species_list(i)%linear_factor = linear_factor(i)
+#endif
 #endif        
       END DO
 #ifdef BOUND_HARMONIC
@@ -166,6 +184,12 @@ CONTAINS
       DEALLOCATE(harmonic_om)
       DEALLOCATE(harmonic_gm)
       DEALLOCATE(dir_nparts)
+#ifdef NONLIN
+      DEALLOCATE(nl_alpha3)
+      DEALLOCATE(linear_factor)
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
 
       DO i = 1, n_species
@@ -339,6 +363,12 @@ CONTAINS
     species_bfield_sample_factor = 1.0_num
     species_harmonic_om = 0.0_num
     species_harmonic_gm = 0.0_num
+#ifdef NONLIN
+    species_nl_alpha3 = 0
+    species_linear_factor = 1.0_num
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
     
   END SUBROUTINE species_block_start
@@ -376,11 +406,17 @@ CONTAINS
       bfield_sample_factor(n_species) = species_bfield_sample_factor
       dir_nparts(:,n_species) = species_dir_nparts
       ! I DO NOT KNOW WHY I MUST RESET THEM HERE
-      ! WHAT ABOUT BEGIN?? IT DOESN'T WORK!!!!
+      ! WHAT ABOUT BEGIN?? IT DOESN'T WORK???
       species_harmonic_om = 0.0_num
       species_harmonic_gm = 0.0_num
       species_bfield_sample_factor = 1.0_num
       species_dir_nparts = 0
+#ifdef NONLIN
+      species_nl_alpha3 = 0
+      species_linear_factor = 1.0_num
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif      
       IF (n_secondary_species_in_block > 0) THEN
         ! Create an empty species for each ionisation energy listed in species
@@ -499,7 +535,7 @@ CONTAINS
       RETURN
     END IF
 
-    IF (str_cmp(element, "bfield_sample_factor")) THEN
+    IF (str_cmp(element, 'bfield_sample_factor')) THEN
       species_bfield_sample_factor = as_real_print(value, element, errcode)
       RETURN
     END IF
@@ -514,6 +550,18 @@ CONTAINS
       species_dir_nparts(3) = as_integer_print(value, element, errcode)
       RETURN
     END IF
+#ifdef NONLIN
+
+    IF      (str_cmp(element, 'nonlinear_alpha3')) THEN
+      species_nl_alpha3 = as_real_print(value, element, errcode)
+      RETURN
+    ELSE IF (str_cmp(element, 'linear_factor')) THEN
+      species_linear_factor = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+! end NONLIN
+#endif
+! end BOUND_HARMONIC
 #endif
 
     IF (str_cmp(element, 'dump')) THEN
@@ -1402,6 +1450,12 @@ CONTAINS
     CALL grow_array(harmonic_gm, 3, n_species)
     CALL grow_array(bfield_sample_factor, n_species)
     CALL grow_array(dir_nparts, c_ndims, n_species)
+#ifdef NONLIN
+    CALL grow_array(nl_alpha3,n_species) 
+    CALL grow_array(linear_factor,n_species)
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
 
     
@@ -1421,6 +1475,12 @@ CONTAINS
     harmonic_gm(:,n_species) = 0.0_num
     bfield_sample_factor(n_species) = 1.0_num
     dir_nparts(:, n_species) = 0
+#ifdef NONLIN
+    nl_alpha3(n_species) = 0
+    linear_factor(n_species) = 1.0_num
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
     
     RETURN
@@ -1492,6 +1552,14 @@ CONTAINS
     bfield_sample_factor(n_species) = species_bfield_sample_factor
     CALL grow_array(dir_nparts, c_ndims, n_species)
     dir_nparts(:, n_species) = species_dir_nparts
+#ifdef NONLIN
+    CALL grow_array(nl_alpha3,n_species)
+    nl_alpha3(n_species) = species_nl_alpha3
+    CALL grow_array(linear_factor,n_species)
+    linear_factor(n_species) = species_linear_factor
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
     RETURN
 
