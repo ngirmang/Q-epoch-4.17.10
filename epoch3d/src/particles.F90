@@ -293,7 +293,9 @@ CONTAINS
 #ifdef NONLIN
       fnl3 = species_list(ispecies)%nl_alpha3 * dtfac / c !dto2 or dtfac ???
       elinfac = species_list(ispecies)%linear_factor
-#endif
+!end NONLIN
+#endi
+!end BOUND_HARMONIC
 #endif
       !DEC$ VECTOR ALWAYS
       DO ipart = 1, species_list(ispecies)%attached_list%count

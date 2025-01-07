@@ -343,8 +343,8 @@ CONTAINS
   SUBROUTINE setup_grid_x
 
     INTEGER :: iproc
-#ifndef NEWPML !so this isn't even used...
-    REAL(num) :: boundary_shift
+#ifndef NEWPML 
+    REAL(num) :: boundary_shift !so this isn't even used...
 #endif
 
     ! Setup local grid

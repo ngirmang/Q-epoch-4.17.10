@@ -945,7 +945,7 @@ CONTAINS
       IF (add_laser(i) .OR. bc_field(i) == c_bc_simple_outflow) &
           CALL outflow_bcs_y_max
     END IF
-#ifdef NEWPML !check this
+#ifdef NEWPML
     IF (floating_laser) THEN
       IF (add_laser(c_bd_x_min)) CALL outflow_bcs_x_min
       IF (add_laser(c_bd_x_max)) CALL outflow_bcs_x_max
@@ -978,6 +978,8 @@ CONTAINS
     REAL(num) :: x_shift, y_shift
 
 #ifdef NEWPML
+    boundary_shift = 0
+    
     x_min_outer = x_min - dx * ( 1 + png + cpml_thicknesses(1)) / 2.0_num
     x_max_outer = x_max + dx * ( 1 + png + cpml_thicknesses(2)) / 2.0_num
     x_shift = length_x +  dx * (cpml_thicknesses(1) + cpml_thicknesses(2))
@@ -1818,7 +1820,8 @@ CONTAINS
         IF (nx_global_min <= nx_global - cpml_thicknesses(2) + 1) THEN
           ! in local grid coordinates
           ! global -> local: ixl = ixg - nx_global_min + 1
-          cpml_x_max_start = nx_global - cpml_thicknesses(2) + 1 - nx_global_min + 1
+          cpml_x_max_start = nx_global - cpml_thicknesses(2) &
+               + 1 - nx_global_min + 1
           cpml_x_max_offset = cpml_thicknesses(2) - nx_global + nx_global_max
         ELSE
           cpml_x_max_start = 1 ! in local grid coordinates
@@ -1942,7 +1945,8 @@ CONTAINS
         IF (ny_global_min <= ny_global - cpml_thicknesses(4) + 1) THEN
           ! in local grid coordinates
           ! global -> local: iyl = iyg - ny_global_min + 1
-          cpml_y_max_start = ny_global - cpml_thicknesses(4) + 1 - ny_global_min + 1
+          cpml_y_max_start = ny_global - cpml_thicknesses(4) &
+               + 1 - ny_global_min + 1
           cpml_y_max_offset = cpml_thicknesses(4) - ny_global + ny_global_max
         ELSE
           cpml_y_max_start = 1 ! in local grid coordinates
@@ -2073,8 +2077,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: ny, ny_global_min, ny_global_max
 
     INTEGER i, j
-    INTEGER st, en
-    INTEGER x_min_offset, x_max_offset, y_min_offset, y_max_offset
 
     REAL(num) cx,cy,d
     ALLOCATE(pml_inv(1-ng:nx+ng,1-ng:ny+ng))

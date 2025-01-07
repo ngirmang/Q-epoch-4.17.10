@@ -160,7 +160,9 @@ CONTAINS
 #ifdef NONLIN
         species_list(i)%nl_alpha3 = nl_alpha3(i)
         species_list(i)%linear_factor = linear_factor(i)
+!end NONLIN
 #endif
+!end BOUND_HARMONIC
 #endif        
       END DO
 #ifdef BOUND_HARMONIC
@@ -168,6 +170,10 @@ CONTAINS
         DO i = 1, n_species
           PRINT '(a,a,3ES9.2)', TRIM(species_list(i)%name),&
                ' omega=', species_list(i)%harmonic_omega
+#ifdef NONLIN
+          PRINT '(a," alpha3=", ES9.2)', TRIM(species_list(i)%name),&
+               species_list(i)%nl_alpha3
+#endif
         END DO
       END IF
 

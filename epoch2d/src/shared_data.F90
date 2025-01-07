@@ -249,6 +249,12 @@ MODULE shared_data
     REAL(num) :: diminish_factor
 
     LOGICAL :: medium_species = .FALSE.
+#ifdef NONLIN
+    REAL(num) :: nl_alpha3 = 0.0_num
+    REAL(num) :: linear_factor = 1.0_num
+!end NONLIN
+#endif
+!end BOUND_HARMONIC
 #endif
 
     ! Specify if species is background species or not
