@@ -418,6 +418,9 @@ CONTAINS
       species_bfield_sample_factor = 1.0_num
       species_dir_nparts = 0
 #ifdef NONLIN
+      nl_alpha3(n_species) = species_nl_alpha3
+      linear_factor(n_species) = species_linear_factor
+
       species_nl_alpha3 = 0
       species_linear_factor = 1.0_num
 !end NONLIN
