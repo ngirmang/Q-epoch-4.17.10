@@ -118,13 +118,17 @@ CONTAINS
 #ifdef NEWPML
     IF (use_newpml) THEN
       CALL update_e_field_newpml
+
+      RETURN
+
 #ifdef NONLIN_EPS
-      
     ELSE IF (use_eps3) THEN
+
       CALL update_eps3
       CALL update_e_field_eps
-#endif
       RETURN
+
+#endif
     END IF
 !end NEWPML
 #endif
