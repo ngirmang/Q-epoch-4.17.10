@@ -65,7 +65,15 @@ CONTAINS
     LOGICAL :: got_file
 
     errcode = c_err_none
+#ifndef NONLIN_EPS
     IF (deck_state == c_ds_first) RETURN
+#else
+    IF (str_cmp(element, 'eps_alpha3')) THEN
+      use_eps3 = .TRUE.
+      eps_stored = .TRUE.
+    END IF
+    IF (deck_state == c_ds_first) RETURN
+#endif
     IF (element == blank .OR. value == blank) RETURN
 
     IF (str_cmp(element, 'offset')) THEN
@@ -147,71 +155,147 @@ CONTAINS
       RETURN
     END IF
 #ifdef CONSTEPS
-    
-    IF (str_cmp(element, 'eps_x')) THEN
-      IF (got_file) THEN
-        CALL load_single_array_from_file(filename, iepsx, offset, errcode)
-      ELSE
-        CALL set_tokenizer_stagger(c_stagger_ex)
-        CALL evaluate_string_in_space(value, iepsx, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)
-        CALL set_tokenizer_stagger(c_stagger_centre)
+    IF (eps_stored) THEN
+      IF (str_cmp(element, 'eps_x')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, epsx, offset, errcode)
+        ELSE
+          CALL initialise_stack(epsx_func)
+          CALL tokenize(value, epsx_func, errcode)
+          
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, epsx, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+        END IF
+        RETURN
       END IF
-      iepsx = 1.0_num / iepsx
-      RETURN
-    END IF
 
-    IF (str_cmp(element, 'eps_y')) THEN
-      IF (got_file) THEN
-        CALL load_single_array_from_file(filename, iepsy, offset, errcode)
-      ELSE
-        CALL set_tokenizer_stagger(c_stagger_ey)
-        CALL evaluate_string_in_space(value, iepsy, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)
-        CALL set_tokenizer_stagger(c_stagger_centre)
+      IF (str_cmp(element, 'eps_y')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, epsy, offset, errcode)
+        ELSE
+          CALL initialise_stack(epsy_func)
+          CALL tokenize(value, epsy_func, errcode)
+          
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, epsy, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+        END IF
+        RETURN
       END IF
-      iepsy = 1.0_num / iepsy
-      RETURN
-    END IF
 
-    IF (str_cmp(element, 'eps_z')) THEN
-      IF (got_file) THEN
-        CALL load_single_array_from_file(filename, iepsz, offset, errcode)
-      ELSE
-        CALL set_tokenizer_stagger(c_stagger_ez)
-        CALL evaluate_string_in_space(value, iepsz, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)
-        CALL set_tokenizer_stagger(c_stagger_centre)
-      END IF
-      iepsz = 1.0_num / iepsz
-      RETURN
-    END IF
+      IF (str_cmp(element, 'eps_z')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, epsz, offset, errcode)
+        ELSE
+          CALL initialise_stack(epsz_func)
+          CALL tokenize(value, epsz_func, errcode)
+          
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, epsz, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
 
-    IF (str_cmp(element, 'eps')) THEN
-      IF (got_file) THEN
-        CALL load_single_array_from_file(filename, iepsx, offset, errcode)
-        iepsy = iepsx
-        iepsz = iepsx
-      ELSE
-        CALL set_tokenizer_stagger(c_stagger_ex)
-        CALL evaluate_string_in_space(value, iepsx, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)
-        CALL set_tokenizer_stagger(c_stagger_ey)
-        CALL evaluate_string_in_space(value, iepsy, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)
-        CALL set_tokenizer_stagger(c_stagger_ez)
-        CALL evaluate_string_in_space(value, iepsz, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)        
-        CALL set_tokenizer_stagger(c_stagger_centre)
+        END IF
+        RETURN
       END IF
-      iepsx = 1.0_num / iepsx
-      iepsy = 1.0_num / iepsy
-      iepsz = 1.0_num / iepsz
-      RETURN
+
+      IF (str_cmp(element, 'eps')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, epsx, offset, errcode)
+          epsy = epsx
+          epsz = epsx
+        ELSE
+          CALL initialise_stack(epsx_func)
+          CALL initialise_stack(epsy_func)
+          CALL initialise_stack(epsz_func)
+          CALL tokenize(value, epsx_func, errcode)
+          CALL tokenize(value, epsy_func, errcode)
+          CALL tokenize(value, epsz_func, errcode)
+
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, epsx, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          CALL evaluate_string_in_space(value, epsy, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          CALL evaluate_string_in_space(value, epsz, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)        
+        END IF
+        RETURN
+      END IF
+    ELSE ! continue using  iespx
+      IF (str_cmp(element, 'eps_x')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, iepsx, offset, errcode)
+        ELSE
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, iepsx, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+        END IF
+        iepsx = 1.0_num / iepsx
+        RETURN
+      END IF
+
+      IF (str_cmp(element, 'eps_y')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, iepsy, offset, errcode)
+        ELSE
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, iepsy, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+        END IF
+        iepsy = 1.0_num / iepsy
+        RETURN
+      END IF
+
+      IF (str_cmp(element, 'eps_z')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, iepsz, offset, errcode)
+        ELSE
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, iepsz, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+        END IF
+        iepsz = 1.0_num / iepsz
+        RETURN
+      END IF
+
+      IF (str_cmp(element, 'eps')) THEN
+        IF (got_file) THEN
+          CALL load_single_array_from_file(filename, iepsx, offset, errcode)
+          iepsy = iepsx
+          iepsz = iepsx
+        ELSE
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          CALL evaluate_string_in_space(value, iepsx, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          CALL evaluate_string_in_space(value, iepsy, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          CALL evaluate_string_in_space(value, iepsz, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+        END IF
+        iepsx = 1.0_num / iepsx
+        iepsy = 1.0_num / iepsy
+        iepsz = 1.0_num / iepsz
+        RETURN
+      END IF
     END IF
-    
 #endif
+#ifdef NONLIN_EPS
+    IF (str_cmp(element, 'eps3')) THEN
+      IF (got_file) THEN
+        CALL load_single_array_from_file(filename, eps3, offset, errcode)
+      ELSE
+        CALL initialise_stack(eps3_func)
+        CALL tokenize(value, eps3_func, errcode)
 
+        CALL set_tokenizer_stagger(c_stagger_centre)
+        CALL evaluate_string_in_space(value, eps3, &
+            1-ng, nx+ng, 1-ng, ny+ng, errcode)
+      END IF
+      RETURN
+    END IF
+#endif
+    
   END FUNCTION fields_block_handle_element
 
 

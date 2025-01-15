@@ -392,9 +392,25 @@ CONTAINS
     ALLOCATE(jy(1-jng:nx+jng, 1-jng:ny+jng))
     ALLOCATE(jz(1-jng:nx+jng, 1-jng:ny+jng))
 #ifdef CONSTEPS
-    ALLOCATE(iepsx(1-ng:nx+ng, 1-ng:ny+ng))
-    ALLOCATE(iepsy(1-ng:nx+ng, 1-ng:ny+ng))
-    ALLOCATE(iepsz(1-ng:nx+ng, 1-ng:ny+ng))
+    IF (.NOT. eps_stored) THEN
+      ALLOCATE(iepsx(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(iepsy(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(iepsz(1-ng:nx+ng, 1-ng:ny+ng))
+    ELSE
+#ifdef NONLIN_EPS
+      ALLOCATE(epsx(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(epsy(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(epsz(1-ng:nx+ng, 1-ng:ny+ng))
+
+      ALLOCATE(eps0x(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(eps0y(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(eps0z(1-ng:nx+ng, 1-ng:ny+ng))
+
+      ALLOCATE(eps3(1-ng:nx+ng, 1-ng:ny+ng))
+!end NONLIN_EPS
+#endif
+    END IF
+!end CONSTEPS
 #endif
 
     ! Setup the particle lists

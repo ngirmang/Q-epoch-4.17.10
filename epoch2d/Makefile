@@ -180,7 +180,7 @@ DEFINES := $(DEFINE)
 # added 
 DEFINES += $(D)BOUND_HARMONIC $(D)PARTICLE_ID $(D)WINDOW_NO_EXTRA
 DEFINES += $(D)NEWPML $(D)COLL_ELECCHECK $(D)SKIP_ZEROPARTS $(D)CONSTEPS
-DEFINES += $(D)NONLIN
+DEFINES += $(D)NONLIN $(D)NONLIN_EPS
 
 # The following are a list of pre-processor defines which can be added to
 # the above line modifying the code behaviour at compile time.

@@ -630,10 +630,18 @@ CONTAINS
     jz = 0.0_num
 
 #ifdef CONSTEPS
-    iepsx = 1.0_num
-    iepsy = 1.0_num
-    iepsz = 1.0_num
-
+    IF (.NOT. eps_stored) THEN
+      iepsx = 1.0_num
+      iepsy = 1.0_num
+      iepsz = 1.0_num
+    ELSE
+#ifdef NONLIN_EPS
+      epsx = 1.0_num
+      epsy = 1.0_num
+      epsz = 1.0_num
+      eps3 = 0.0_num
+#endif
+    END IF
 #endif
     ! Set up random number seed
     seed = 7842432

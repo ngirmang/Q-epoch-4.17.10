@@ -106,7 +106,12 @@ CONTAINS
   SUBROUTINE shift_fields
 
     INTEGER :: j
-
+#ifdef CONSTEPS
+    INTEGER :: ix, iy, errcode
+    TYPE(parameter_pack) :: parameters
+    REAL(num) :: vex,vey,vez
+#endif
+    
     CALL shift_field(ex, ng)
     CALL shift_field(ey, ng)
     CALL shift_field(ez, ng)
@@ -131,6 +136,22 @@ CONTAINS
       CALL shift_field(cpml_psi_bzy, ng)
     END IF
 
+#ifdef CONSTEPS
+    IF (.NOT. eps_stored) THEN
+      CALL shift_field(iepsx, ng)
+      CALL shift_field(iepsy, ng)
+      CALL shift_field(iepsz, ng)
+    ELSE
+#ifdef NONLIN_EPS
+      CALL shift_field(epsx, ng)
+      CALL shift_field(epsy, ng)
+      CALL shift_field(epsz, ng)
+
+      CALL shift_field(eps3, ng)
+#endif
+    END IF
+#endif
+    
     IF (x_max_boundary) THEN
       DO j = 1-ng, ny+ng
         ! Fix incoming field cell.
@@ -162,8 +183,40 @@ CONTAINS
           cpml_psi_bzy(nx:nx+1,j) = cpml_psi_bzy(nx,j)
         END DO
       END IF
-    END IF
+#ifdef CONSTEPS
+      
+      ! first, set the CONSTEPS of the incoming cell
 
+      CALL set_tokenizer_stagger(c_stagger_centre)
+      parameters%pack_ix = nx
+      DO j = 1-ng, ny+ng
+        parameters%pack_iy = j
+        
+        vex = evaluate_with_parameters(epsx_func, parameters, errcode)
+        vey = evaluate_with_parameters(epsy_func, parameters, errcode)
+        vez = evaluate_with_parameters(epsz_func, parameters, errcode)
+        
+        IF (.NOT. eps_stored) THEN
+          iepsx(nx:nx+1,j) = 1.0_num / vex
+          iepsy(nx+1,j)    = 1.0_num / vey
+          iepsz(nx+1,j)    = 1.0_num / vez
+        ELSE
+#ifdef NONLIN_EPS
+          eps0x(nx:nx+1,j) = vex ! confirm this works...
+          eps0y(nx+1,j)    = vey
+          eps0z(nx+1,j)    = vez
+          ! only eps0 moves, eps is essentially storage
+
+          vex = evaluate_with_parameters(eps3_func, parameters, errcode)
+          eps3(nx:nx+1,j) = vex
+#endif
+        END IF
+      END DO
+      
+!end CONSTEPS
+#endif
+    END IF
+    
   END SUBROUTINE shift_fields
 
 

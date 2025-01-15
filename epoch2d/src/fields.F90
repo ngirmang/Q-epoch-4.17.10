@@ -118,8 +118,15 @@ CONTAINS
 #ifdef NEWPML
     IF (use_newpml) THEN
       CALL update_e_field_newpml
+#ifdef NONLIN_EPS
+      
+    ELSE IF (use_eps3) THEN
+      CALL update_eps3
+      CALL update_e_field_eps
+#endif
       RETURN
     END IF
+!end NEWPML
 #endif
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
@@ -344,6 +351,60 @@ CONTAINS
   END SUBROUTINE update_e_field
 
 #ifdef NEWPML
+#ifdef NONLIN_EPS
+  SUBROUTINE update_eps3
+    
+    INTEGER :: ix, iy
+    REAL(num) :: esq
+    
+    DO iy = 0,ny
+    DO ix = 0,nx      
+      esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
+      esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
+      esq = esq + ez(ix,iy)**2
+
+      epsx(ix,iy) = eps0x(ix,iy) + eps3(ix,iy)*esq
+      epsy(ix,iy) = eps0y(ix,iy) + eps3(ix,iy)*esq
+      epsz(ix,iy) = eps0z(ix,iy) + eps3(ix,iy)*esq
+    END DO
+    END DO
+  END SUBROUTINE update_eps3
+
+  SUBROUTINE update_e_field_eps
+    
+    INTEGER  :: ix, iy
+    REAL(num) :: ciex, ciey, ciez
+    
+    IF (field_order /= 2) THEN
+      PRINT '(A)', "esp3 is only implemented for yee, field_order == 2"
+      CALL abort_code(c_err_bad_setup)
+    END IF
+    
+    DO iy = 0, ny
+    DO ix = 0, nx      
+      ciex = 1.0_num / epsx(ix,iy)
+      ciey = 1.0_num / epsy(ix,iy)
+      ciez = 1.0_num / epsz(ix,iy)
+      
+      ex(ix, iy) = ex(ix, iy)  &
+           + ciex * cny * (bz(ix  , iy  ) - bz(ix  , iy-1)) &
+           - ciex * fac * jx(ix, iy)
+
+      ey(ix, iy) = ey(ix, iy)  &
+           - ciey * cnx * (bz(ix  , iy  ) - bz(ix-1, iy  )) &
+           - ciey * fac * jy(ix, iy)
+
+      ez(ix, iy) = ez(ix, iy)  &
+           + ciez * cnx * (by(ix  , iy  ) - by(ix-1, iy  )) &
+           - ciez * cny * (bx(ix  , iy  ) - bx(ix  , iy-1)) &
+           - ciez * fac * jz(ix, iy)
+    END DO
+    END DO
+
+  END SUBROUTINE update_e_field_eps
+!end NONLIN_EPS
+#endif
+
   SUBROUTINE update_e_field_newpml
 
     INTEGER :: ix, iy
@@ -360,9 +421,37 @@ CONTAINS
       CALL abort_code(c_err_bad_setup)
     END IF
     
-    DO iy = 0, ny
-    DO ix = 0, nx
+#ifdef NONLIN_EPS
+    IF (use_eps3) THEN
+      CALL update_eps3
+      DO iy = 0, ny
+      DO ix = 0, nx
+        ceye = pml_eye(ix,iy)
+        cinv = pml_inv(ix,iy)
+        
+        ciex = cinv / epsx(ix,iy)
+        ciey = cinv / epsy(ix,iy)
+        ciez = cinv / epsz(ix,iy)
+      
+        ex(ix, iy) = ex(ix, iy)*ceye &
+             + ciex * cny * (bz(ix  , iy  ) - bz(ix  , iy-1)) &
+             - ciex * fac * jx(ix, iy)
 
+        ey(ix, iy) = ey(ix, iy)*ceye &
+             - ciey * cnx * (bz(ix  , iy  ) - bz(ix-1, iy  )) &
+             - ciey * fac * jy(ix, iy)
+
+        ez(ix, iy) = ez(ix, iy)*ceye &
+             + ciez * cnx * (by(ix  , iy  ) - by(ix-1, iy  )) &
+             - ciez * cny * (bx(ix  , iy  ) - bx(ix  , iy-1)) &
+             - ciez * fac * jz(ix, iy)
+      END DO
+      END DO
+      RETURN
+    END IF
+#endif
+    DO iy = 0, ny
+    DO ix = 0, nx      
       ceye = pml_eye(ix,iy)
       cinv = pml_inv(ix,iy)
 
@@ -371,20 +460,20 @@ CONTAINS
       ciez = iepsz(ix,iy)*cinv
       
       ex(ix, iy) = ex(ix, iy)*ceye &
-          + ciex * cny * (bz(ix  , iy  ) - bz(ix  , iy-1)) &
-          - ciex * fac * jx(ix, iy)
+           + ciex * cny * (bz(ix  , iy  ) - bz(ix  , iy-1)) &
+           - ciex * fac * jx(ix, iy)
 
       ey(ix, iy) = ey(ix, iy)*ceye &
-          - ciey * cnx * (bz(ix  , iy  ) - bz(ix-1, iy  )) &
-          - ciey * fac * jy(ix, iy)
+           - ciey * cnx * (bz(ix  , iy  ) - bz(ix-1, iy  )) &
+           - ciey * fac * jy(ix, iy)
 
       ez(ix, iy) = ez(ix, iy)*ceye &
-          + ciez * cnx * (by(ix  , iy  ) - by(ix-1, iy  )) &
-          - ciez * cny * (bx(ix  , iy  ) - bx(ix  , iy-1)) &
-          - ciez * fac * jz(ix, iy)
+           + ciez * cnx * (by(ix  , iy  ) - by(ix-1, iy  )) &
+           - ciez * cny * (bx(ix  , iy  ) - bx(ix  , iy-1)) &
+           - ciez * fac * jz(ix, iy)
     END DO
     END DO
-
+      
   END SUBROUTINE update_e_field_newpml
 #endif!NEWPML
 

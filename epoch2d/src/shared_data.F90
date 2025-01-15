@@ -481,6 +481,22 @@ MODULE shared_data
 #ifdef CONSTEPS
 
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: iepsx, iepsy, iepsz
+  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: epsx, epsy, epsz
+  
+  TYPE(primitive_stack), SAVE :: epsx_func, epsy_func, epsz_func
+#ifdef  NONLIN_EPS
+#ifndef NEWPML
+#error  "NONLIN_EPS must be compiled with NEWPML"
+#endif
+  TYPE(primitive_stack), SAVE :: eps3_func
+  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: eps0x, eps0y, eps0z
+  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: eps3
+  LOGICAL :: use_eps3 = .FALSE.
+  
+  LOGICAL :: eps_stored = .FALSE.
+#else
+  LOGICAL, PARAMETER :: eps_stored = .FALSE.
+#endif
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: medium_factor
   INTEGER :: medium_eps_mode = -1
 #endif
@@ -490,7 +506,7 @@ MODULE shared_data
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: pml_inv, pml_eye, pml_sig
   LOGICAL  use_newpml, use_manualpml
   LOGICAL :: floating_laser=.FALSE.
-#endif!NEWPML
+#endif!NEWPML 
 
   !----------------------------------------------------------------------------
   ! Core code

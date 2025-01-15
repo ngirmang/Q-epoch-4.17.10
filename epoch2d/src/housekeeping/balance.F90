@@ -529,21 +529,60 @@ CONTAINS
     ALLOCATE(ez(1-ng:nx_new+ng, 1-ng:ny_new+ng))
     ez = temp
 #ifdef CONSTEPS
+    IF (eps_stored) THEN
+      CALL remap_field(iepsx, temp)
+      DEALLOCATE(iepsx)
+      ALLOCATE(iepsx(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      iepsx = temp
 
-    CALL remap_field(iepsx, temp)
-    DEALLOCATE(iepsx)
-    ALLOCATE(iepsx(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-    iepsx = temp
+      CALL remap_field(iepsy, temp)
+      DEALLOCATE(iepsy)
+      ALLOCATE(iepsy(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      iepsy = temp
 
-    CALL remap_field(iepsy, temp)
-    DEALLOCATE(iepsy)
-    ALLOCATE(iepsy(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-    iepsy = temp
+      CALL remap_field(iepsz, temp)
+      DEALLOCATE(iepsz)
+      ALLOCATE(iepsz(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      iepsz = temp
+    ELSE
+#ifdef NONLIN_EPS
+      CALL remap_field(epsx, temp)
+      DEALLOCATE(epsx)
+      ALLOCATE(epsx(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      epsx = temp
 
-    CALL remap_field(iepsz, temp)
-    DEALLOCATE(iepsz)
-    ALLOCATE(iepsz(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-    iepsz = temp
+      CALL remap_field(epsy, temp)
+      DEALLOCATE(epsy)
+      ALLOCATE(epsy(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      epsy = temp
+
+      CALL remap_field(epsz, temp)
+      DEALLOCATE(epsz)
+      ALLOCATE(epsz(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      epsz = temp
+
+      CALL remap_field(eps0x, temp)
+      DEALLOCATE(eps0x)
+      ALLOCATE(eps0x(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      eps0x = temp
+
+      CALL remap_field(eps0y, temp)
+      DEALLOCATE(eps0y)
+      ALLOCATE(eps0y(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      eps0y = temp
+
+      CALL remap_field(eps0z, temp)
+      DEALLOCATE(eps0z)
+      ALLOCATE(eps0z(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      eps0z = temp
+
+      CALL remap_field(eps3, temp)
+      DEALLOCATE(eps3)
+      ALLOCATE(eps3(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+!end NONLIN_EPS
+#endif
+    END IF
+!end CONSTEPS
 #endif
 
 
