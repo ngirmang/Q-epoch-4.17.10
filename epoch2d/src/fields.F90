@@ -454,6 +454,7 @@ CONTAINS
       RETURN
     END IF
 #endif
+
     DO iy = 0, ny
     DO ix = 0, nx      
       ceye = pml_eye(ix,iy)

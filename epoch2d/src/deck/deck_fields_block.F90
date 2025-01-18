@@ -68,9 +68,10 @@ CONTAINS
 #ifndef NONLIN_EPS
     IF (deck_state == c_ds_first) RETURN
 #else
-    IF (str_cmp(element, 'eps_alpha3')) THEN
+    IF (str_cmp(element, 'eps3')) THEN
       use_eps3 = .TRUE.
       eps_stored = .TRUE.
+      IF (rank == 0) PRINT '("using eps3")'
     END IF
     IF (deck_state == c_ds_first) RETURN
 #endif
@@ -158,13 +159,13 @@ CONTAINS
     IF (eps_stored) THEN
       IF (str_cmp(element, 'eps_x')) THEN
         IF (got_file) THEN
-          CALL load_single_array_from_file(filename, epsx, offset, errcode)
+          CALL load_single_array_from_file(filename, eps0x, offset, errcode)
         ELSE
           CALL initialise_stack(epsx_func)
           CALL tokenize(value, epsx_func, errcode)
           
           CALL set_tokenizer_stagger(c_stagger_centre)
-          CALL evaluate_string_in_space(value, epsx, &
+          CALL evaluate_string_in_space(value, eps0x, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
         END IF
         RETURN
@@ -172,13 +173,13 @@ CONTAINS
 
       IF (str_cmp(element, 'eps_y')) THEN
         IF (got_file) THEN
-          CALL load_single_array_from_file(filename, epsy, offset, errcode)
+          CALL load_single_array_from_file(filename, eps0y, offset, errcode)
         ELSE
           CALL initialise_stack(epsy_func)
           CALL tokenize(value, epsy_func, errcode)
           
           CALL set_tokenizer_stagger(c_stagger_centre)
-          CALL evaluate_string_in_space(value, epsy, &
+          CALL evaluate_string_in_space(value, eps0y, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
         END IF
         RETURN
@@ -186,13 +187,13 @@ CONTAINS
 
       IF (str_cmp(element, 'eps_z')) THEN
         IF (got_file) THEN
-          CALL load_single_array_from_file(filename, epsz, offset, errcode)
+          CALL load_single_array_from_file(filename, eps0z, offset, errcode)
         ELSE
           CALL initialise_stack(epsz_func)
           CALL tokenize(value, epsz_func, errcode)
           
           CALL set_tokenizer_stagger(c_stagger_centre)
-          CALL evaluate_string_in_space(value, epsz, &
+          CALL evaluate_string_in_space(value, eps0z, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
 
         END IF
@@ -201,9 +202,9 @@ CONTAINS
 
       IF (str_cmp(element, 'eps')) THEN
         IF (got_file) THEN
-          CALL load_single_array_from_file(filename, epsx, offset, errcode)
-          epsy = epsx
-          epsz = epsx
+          CALL load_single_array_from_file(filename, eps0x, offset, errcode)
+          epsy = eps0x
+          epsz = eps0x
         ELSE
           CALL initialise_stack(epsx_func)
           CALL initialise_stack(epsy_func)
@@ -213,11 +214,11 @@ CONTAINS
           CALL tokenize(value, epsz_func, errcode)
 
           CALL set_tokenizer_stagger(c_stagger_centre)
-          CALL evaluate_string_in_space(value, epsx, &
+          CALL evaluate_string_in_space(value, eps0x, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
-          CALL evaluate_string_in_space(value, epsy, &
+          CALL evaluate_string_in_space(value, eps0y, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
-          CALL evaluate_string_in_space(value, epsz, &
+          CALL evaluate_string_in_space(value, eps0z, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)        
         END IF
         RETURN
@@ -227,6 +228,9 @@ CONTAINS
         IF (got_file) THEN
           CALL load_single_array_from_file(filename, iepsx, offset, errcode)
         ELSE
+          CALL initialise_stack(epsx_func)
+          CALL tokenize(value, epsx_func, errcode)
+
           CALL set_tokenizer_stagger(c_stagger_centre)
           CALL evaluate_string_in_space(value, iepsx, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
@@ -239,6 +243,9 @@ CONTAINS
         IF (got_file) THEN
           CALL load_single_array_from_file(filename, iepsy, offset, errcode)
         ELSE
+          CALL initialise_stack(epsy_func)
+          CALL tokenize(value, epsy_func, errcode)
+
           CALL set_tokenizer_stagger(c_stagger_centre)
           CALL evaluate_string_in_space(value, iepsy, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
@@ -251,6 +258,9 @@ CONTAINS
         IF (got_file) THEN
           CALL load_single_array_from_file(filename, iepsz, offset, errcode)
         ELSE
+          CALL initialise_stack(epsz_func)
+          CALL tokenize(value, epsz_func, errcode)
+
           CALL set_tokenizer_stagger(c_stagger_centre)
           CALL evaluate_string_in_space(value, iepsz, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)
@@ -265,6 +275,13 @@ CONTAINS
           iepsy = iepsx
           iepsz = iepsx
         ELSE
+          CALL initialise_stack(epsx_func)
+          CALL initialise_stack(epsy_func)
+          CALL initialise_stack(epsz_func)
+          CALL tokenize(value, epsx_func, errcode)
+          CALL tokenize(value, epsy_func, errcode)
+          CALL tokenize(value, epsz_func, errcode)
+
           CALL set_tokenizer_stagger(c_stagger_centre)
           CALL evaluate_string_in_space(value, iepsx, &
                1-ng, nx+ng, 1-ng, ny+ng, errcode)

@@ -639,6 +639,10 @@ CONTAINS
       epsx = 1.0_num
       epsy = 1.0_num
       epsz = 1.0_num
+      eps0x= 1.0_num
+      eps0y= 1.0_num
+      eps0z= 1.0_num
+
       eps3 = 0.0_num
 #endif
     END IF

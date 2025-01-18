@@ -143,9 +143,9 @@ CONTAINS
       CALL shift_field(iepsz, ng)
     ELSE
 #ifdef NONLIN_EPS
-      CALL shift_field(epsx, ng)
-      CALL shift_field(epsy, ng)
-      CALL shift_field(epsz, ng)
+      CALL shift_field(eps0x, ng)
+      CALL shift_field(eps0y, ng)
+      CALL shift_field(eps0z, ng)
 
       CALL shift_field(eps3, ng)
 #endif
@@ -191,11 +191,15 @@ CONTAINS
       parameters%pack_ix = nx
       DO j = 1-ng, ny+ng
         parameters%pack_iy = j
-        
-        vex = evaluate_with_parameters(epsx_func, parameters, errcode)
-        vey = evaluate_with_parameters(epsy_func, parameters, errcode)
-        vez = evaluate_with_parameters(epsz_func, parameters, errcode)
-        
+
+        vex = 1.0_num ; vey = 1.0_num ; vez = 1.0_num
+        IF (epsx_func%init) &
+             vex = evaluate_with_parameters(epsx_func, parameters, errcode)
+        IF (epsy_func%init) &
+             vey = evaluate_with_parameters(epsy_func, parameters, errcode)
+        IF (epsz_func%init) &
+             vez = evaluate_with_parameters(epsz_func, parameters, errcode)
+
         IF (.NOT. eps_stored) THEN
           iepsx(nx:nx+1,j) = 1.0_num / vex
           iepsy(nx+1,j)    = 1.0_num / vey
