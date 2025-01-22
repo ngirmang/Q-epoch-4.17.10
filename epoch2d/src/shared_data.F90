@@ -256,6 +256,9 @@ MODULE shared_data
 #endif
 !end BOUND_HARMONIC
 #endif
+#ifdef NONLIN_EPS
+    LOGICAL :: eps_off_on_ionise = .FALSE.
+#endif
 
     ! Specify if species is background species or not
     LOGICAL :: background_species = .FALSE.

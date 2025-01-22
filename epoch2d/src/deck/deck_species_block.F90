@@ -72,6 +72,11 @@ MODULE deck_species_block
   INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
 
 #endif
+#ifdef NONLIN_EPS
+  LOGICAL :: species_eps_off
+  LOGICAL, DIMENSION(:), POINTER :: eps_off
+#endif
+
   INTEGER, DIMENSION(2*c_ndims) :: species_bc_particle
 
 CONTAINS
@@ -110,6 +115,10 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
+#endif
+#ifdef NONLIN_EPS
+      ALLOCATE(eps_off(4))
+      eps_off = .FALSE.
 #endif
       release_species = ''
     END IF
@@ -164,6 +173,9 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
+#ifdef NONLIN_EPS
+        species_list(i)%eps_off_on_ionise = eps_off(i)
+#endif
       END DO
 #ifdef BOUND_HARMONIC
       IF (rank == 0) THEN
@@ -197,6 +209,9 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
+#endif
+#ifdef NONLIN_EPS
+      DEALLOCATE(eps_off)
 #endif
 
       DO i = 1, n_species
@@ -377,6 +392,9 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
+#ifdef NONLIN_EPS
+    species_eps_off = .FALSE.
+#endif
 
   END SUBROUTINE species_block_start
 
@@ -426,6 +444,10 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
+#endif
+#ifdef NONLIN_EPS
+      eps_off(n_species) = species_eps_off
+      species_eps_off = .FALSE.
 #endif
       IF (n_secondary_species_in_block > 0) THEN
         ! Create an empty species for each ionisation energy listed in species
@@ -568,6 +590,12 @@ CONTAINS
 ! end NONLIN
 #endif
 ! end BOUND_HARMONIC 
+#endif
+#ifdef NONLIN_EPS
+    IF (str_cmp(element, 'eps_off_on_ionise')) THEN
+      species_eps_off = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
 #endif
 
     IF (str_cmp(element, 'dump')) THEN
@@ -1451,7 +1479,10 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-    
+#ifdef NONLIN_EPS
+    CALL grow_array(eps_off, n_species)
+#endif
+
     species_names(n_species) = TRIM(name)
     ionise_to_species(n_species) = -1
     release_species(n_species) = ''
@@ -1474,6 +1505,9 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
+#endif
+#ifdef NONLIN_EPS
+    eps_off(n_species) = .FALSE.
 #endif
 
     RETURN
@@ -1553,6 +1587,10 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
+#endif
+#ifdef NONLIN_EPS
+    CALL grow_array(eps_off,n_species)
+    eps_off(n_species) = .FALSE.
 #endif
     RETURN
   END SUBROUTINE create_ionisation_species_from_name

@@ -529,7 +529,7 @@ CONTAINS
     ALLOCATE(ez(1-ng:nx_new+ng, 1-ng:ny_new+ng))
     ez = temp
 #ifdef CONSTEPS
-    IF (eps_stored) THEN
+    IF (.NOT. eps_stored) THEN
       CALL remap_field(iepsx, temp)
       DEALLOCATE(iepsx)
       ALLOCATE(iepsx(1-ng:nx_new+ng, 1-ng:ny_new+ng))
@@ -579,6 +579,7 @@ CONTAINS
       CALL remap_field(eps3, temp)
       DEALLOCATE(eps3)
       ALLOCATE(eps3(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      eps3 = temp
 !end NONLIN_EPS
 #endif
     END IF

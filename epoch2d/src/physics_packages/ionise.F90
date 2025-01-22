@@ -682,6 +682,10 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
+#ifdef NONLIN_EPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
+#endif
         END IF
         current => next
       END DO
@@ -1572,5 +1576,34 @@ CONTAINS
 #endif
   END SUBROUTINE diminish_partners
 #endif
+
+#ifdef NONLIN_EPS
+  SUBROUTINE kill_eps(pos)
+
+    REAL(num), INTENT(IN) :: pos(3)
+    INTEGER i,j
+
+#ifdef PARTICLE_SHAPE_TOPHAT
+    i = FLOOR((pos(1) - x_grid_min_local) / dx) + 1
+    j = FLOOR((pos(2) - y_grid_min_local) / dy) + 1
+#else
+    i = FLOOR((pos(1) - x_grid_min_local) / dx + 1.5_num)
+    j = FLOOR((pos(2) - y_grid_min_local) / dy + 1.5_num)
+#endif
+
+    IF (eps_stored) THEN
+      eps0x(i,j) = 1.0_num
+      eps0y(i,j) = 1.0_num
+      eps0z(i,j) = 1.0_num
+
+      eps3(i,j) = 0
+    ELSE
+      iepsx(i,j) = 1.0_num
+      iepsy(i,j) = 1.0_num
+      iepsz(i,j) = 1.0_num
+    END IF
+  END SUBROUTINE kill_eps
+#endif
+
 
 END MODULE ionise
