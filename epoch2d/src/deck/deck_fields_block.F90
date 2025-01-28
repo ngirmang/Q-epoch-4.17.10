@@ -311,6 +311,11 @@ CONTAINS
       END IF
       RETURN
     END IF
+    IF (str_cmp(element, 'saturateable_eps3')) THEN
+      saturateable_eps3 = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
 #endif
     
   END FUNCTION fields_block_handle_element
@@ -321,6 +326,13 @@ CONTAINS
 
     INTEGER :: errcode
     errcode = c_err_none
+
+#ifdef NONLIN_EPS
+    IF (saturateable_eps3) THEN
+      PRINT "('using saturateable eps3')"
+    END IF
+#endif
+
 
   END FUNCTION fields_block_check
 

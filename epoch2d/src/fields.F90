@@ -359,19 +359,35 @@ CONTAINS
   SUBROUTINE update_eps3
     
     INTEGER :: ix, iy
-    REAL(num) :: esq
-    
-    DO iy = 0,ny
-    DO ix = 0,nx      
-      esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
-      esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
-      esq = esq + ez(ix,iy)**2
+    REAL(num) :: esq, t3
 
-      epsx(ix,iy) = eps0x(ix,iy) + eps3(ix,iy)*esq
-      epsy(ix,iy) = eps0y(ix,iy) + eps3(ix,iy)*esq
-      epsz(ix,iy) = eps0z(ix,iy) + eps3(ix,iy)*esq
-    END DO
-    END DO
+    IF (saturateable_eps3) THEN
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
+        esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
+        esq = esq + ez(ix,iy)**2
+
+        t3 = 1.0_num - 1.0_num/(1.0_num + eps3(ix,iy)*esq)
+        epsx(ix,iy) = eps0x(ix,iy) + t3
+        epsy(ix,iy) = eps0y(ix,iy) + t3
+        epsz(ix,iy) = eps0z(ix,iy) + t3
+      END DO
+      END DO
+    ELSE
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
+        esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
+        esq = esq + ez(ix,iy)**2
+
+        epsx(ix,iy) = eps0x(ix,iy) + eps3(ix,iy)*esq
+        epsy(ix,iy) = eps0y(ix,iy) + eps3(ix,iy)*esq
+        epsz(ix,iy) = eps0z(ix,iy) + eps3(ix,iy)*esq
+      END DO
+      END DO
+    END IF
+
   END SUBROUTINE update_eps3
 
   SUBROUTINE update_e_field_eps

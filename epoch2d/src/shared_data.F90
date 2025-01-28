@@ -494,7 +494,7 @@ MODULE shared_data
   TYPE(primitive_stack), SAVE :: eps3_func
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: eps0x, eps0y, eps0z
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: eps3
-  LOGICAL :: use_eps3 = .FALSE.
+  LOGICAL :: use_eps3 = .FALSE., saturateable_eps3 = .FALSE.
   
   LOGICAL :: eps_stored = .FALSE.
 #else
