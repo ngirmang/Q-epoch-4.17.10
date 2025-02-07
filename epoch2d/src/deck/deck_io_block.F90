@@ -722,7 +722,7 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'total_energy_sum')) THEN
       elementselected = c_dump_total_energy_sum
-#if defined(CONSTEPS) && defined(NONLIN_EPS)
+#ifdef CONSTEPS
     ELSE IF (str_cmp(element, 'epsx') .AND. eps_stored) THEN
       elementselected = c_dump_eps_x
 
@@ -734,6 +734,9 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'eps3') .AND. use_eps3)   THEN
       elementselected = c_dump_eps3
+
+    ELSE IF (str_cmp(element, 'eps_n2') .AND. use_eps_n1n2)   THEN
+      elementselected = c_dump_n2
 #endif
 
     ELSE
@@ -1152,7 +1155,7 @@ CONTAINS
     io_block%dumpmask(c_dump_part_iz) = &
         IOR(io_block%dumpmask(c_dump_part_iz), c_io_restartable)
 #endif
-#if defined(CONSTEPS) && defined(NONLIN_EPS)
+#ifdef CONSTEPS
     io_block%dumpmask(c_dump_eps_x) = &
         IOR(io_block%dumpmask(c_dump_eps_x), c_io_restartable)
     io_block%dumpmask(c_dump_eps_y) = &
@@ -1161,6 +1164,8 @@ CONTAINS
         IOR(io_block%dumpmask(c_dump_eps_z), c_io_restartable)
     io_block%dumpmask(c_dump_eps3) = &
         IOR(io_block%dumpmask(c_dump_eps3), c_io_restartable)
+    io_block%dumpmask(c_dump_n2) = &
+        IOR(io_block%dumpmask(c_dump_n2), c_io_restartable)
 #endif
 
   END SUBROUTINE set_restart_dumpmasks

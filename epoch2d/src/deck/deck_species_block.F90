@@ -56,14 +56,14 @@ MODULE deck_species_block
   REAL(num), DIMENSION(:,:), POINTER :: harmonic_om
   REAL(num), DIMENSION(3) :: species_harmonic_gm
   REAL(num), DIMENSION(:,:), POINTER :: harmonic_gm
-  REAL(num) :: species_bfield_sample_factor
+  REAL(num) :: species_bfield_sample_factor = 1.0_num
   REAL(num), DIMENSION(:), POINTER :: bfield_sample_factor
   INTEGER, DIMENSION(c_ndims) :: species_dir_nparts
   INTEGER, DIMENSION(:,:), POINTER :: dir_nparts
 #ifdef NONLIN
-  REAL(num) :: species_nl_alpha3
+  REAL(num) :: species_nl_alpha3 = 0.0_num
   REAL(num), DIMENSION(:), POINTER :: nl_alpha3
-  REAL(num) :: species_linear_factor
+  REAL(num) :: species_linear_factor = 1.0_num
   REAL(num), DIMENSION(:), POINTER :: linear_factor
 #endif
 
@@ -72,7 +72,7 @@ MODULE deck_species_block
   INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
 
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
   LOGICAL :: species_eps_off
   LOGICAL, DIMENSION(:), POINTER :: eps_off
 #endif
@@ -116,7 +116,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
       ALLOCATE(eps_off(4))
       eps_off = .FALSE.
 #endif
@@ -173,7 +173,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
         species_list(i)%eps_off_on_ionise = eps_off(i)
 #endif
       END DO
@@ -185,6 +185,8 @@ CONTAINS
 #ifdef NONLIN
           PRINT '(a," alpha3=", ES9.2)', TRIM(species_list(i)%name),&
                species_list(i)%nl_alpha3
+          PRINT '(a," linear factor=", ES9.2)', TRIM(species_list(i)%name),&
+               species_list(i)%linear_factor
 #endif
         END DO
       END IF
@@ -210,7 +212,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
       DEALLOCATE(eps_off)
 #endif
 
@@ -392,7 +394,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
     species_eps_off = .FALSE.
 #endif
 
@@ -445,7 +447,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
       eps_off(n_species) = species_eps_off
       species_eps_off = .FALSE.
 #endif
@@ -580,10 +582,11 @@ CONTAINS
     END IF
 #ifdef NONLIN
 
-    IF      (str_cmp(element, 'nonlinear_alpha3')) THEN
+    IF (str_cmp(element, 'nonlinear_alpha3')) THEN
       species_nl_alpha3 = as_real_print(value, element, errcode)
       RETURN
-    ELSE IF (str_cmp(element, 'linear_factor')) THEN
+    END IF
+    IF (str_cmp(element, 'linear_factor')) THEN
       species_linear_factor = as_real_print(value, element, errcode)
       RETURN
     END IF
@@ -591,7 +594,7 @@ CONTAINS
 #endif
 ! end BOUND_HARMONIC 
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
     IF (str_cmp(element, 'eps_off_on_ionise')) THEN
       species_eps_off = as_logical_print(value, element, errcode)
       RETURN
@@ -1479,7 +1482,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
     CALL grow_array(eps_off, n_species)
 #endif
 
@@ -1506,7 +1509,7 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
     eps_off(n_species) = .FALSE.
 #endif
 
@@ -1581,14 +1584,14 @@ CONTAINS
     dir_nparts(:, n_species) = species_dir_nparts
 #ifdef NONLIN
     CALL grow_array(nl_alpha3,n_species)
-    nl_alpha3(n_species) = species_nl_alpha3
+    nl_alpha3(n_species) = 0.0_num !species_nl_alpha3
     CALL grow_array(linear_factor,n_species)
-    linear_factor(n_species) = species_linear_factor
+    linear_factor(n_species) = 1.0_num !species_linear_factor
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
     CALL grow_array(eps_off,n_species)
     eps_off(n_species) = .FALSE.
 #endif

@@ -23,10 +23,9 @@ MODULE collisions
 #ifdef PREFETCH
   USE prefetch
 #endif
-#ifdef BOUND_HARMONIC
-  use ionise
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
+  USE ionise
 #endif
-
   IMPLICIT NONE
 
   PRIVATE
@@ -507,7 +506,7 @@ CONTAINS
 
 
 #ifndef PER_SPECIES_WEIGHT
-#ifdef BOUND_HARMONIC
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
   SUBROUTINE preionise(electrons, ions, ionised, ionising_e, &
       ejected_e, e_mass, ion_mass, e_charge, ion_charge, e_dens, &
       full_ion_charge, ionisation_energy, n1, n2, l, ionspecies)
@@ -525,9 +524,10 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: n1, n2, l
 
-#ifdef BOUND_HARMONIC
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
     INTEGER, INTENT(IN) :: ionspecies
-
+#endif
+#ifdef BOUND_HARMONIC
     INTEGER :: irelease, inext
     REAL(num) :: diminish_factor
 #endif
@@ -767,6 +767,10 @@ CONTAINS
           coll_ionisation_counts(inext) = &
                coll_ionisation_counts(inext) + 1
           CALL diminish_partners(ion, diminish_factor, .TRUE.)
+#endif
+#ifdef CONSTEPS
+          IF (species_list(ionspecies)%eps_off_on_ionise) &
+               CALL kill_eps(ion%part_pos)
 #endif
           CALL add_particle_to_partlist(ejected_e, ejected_electron)
           CALL remove_particle_from_partlist(ions, ion)

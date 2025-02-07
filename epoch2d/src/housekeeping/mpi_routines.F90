@@ -397,18 +397,20 @@ CONTAINS
       ALLOCATE(iepsy(1-ng:nx+ng, 1-ng:ny+ng))
       ALLOCATE(iepsz(1-ng:nx+ng, 1-ng:ny+ng))
     ELSE
-#ifdef NONLIN_EPS
       ALLOCATE(epsx(1-ng:nx+ng, 1-ng:ny+ng))
       ALLOCATE(epsy(1-ng:nx+ng, 1-ng:ny+ng))
       ALLOCATE(epsz(1-ng:nx+ng, 1-ng:ny+ng))
-
-      ALLOCATE(eps0x(1-ng:nx+ng, 1-ng:ny+ng))
-      ALLOCATE(eps0y(1-ng:nx+ng, 1-ng:ny+ng))
-      ALLOCATE(eps0z(1-ng:nx+ng, 1-ng:ny+ng))
-
-      ALLOCATE(eps3(1-ng:nx+ng, 1-ng:ny+ng))
-!end NONLIN_EPS
-#endif
+      IF (use_eps_spatial_average) &
+        ALLOCATE(eps_temp(1-ng:nx+ng, 1-ng:ny+ng))
+      IF ( use_eps_n1n2 ) THEN
+        ALLOCATE(eps_n1(1-ng:nx+ng, 1-ng:ny+ng))
+        ALLOCATE(eps_n2(1-ng:nx+ng, 1-ng:ny+ng))
+      ELSE IF ( use_eps3 ) THEN
+        ALLOCATE(eps0x(1-ng:nx+ng, 1-ng:ny+ng))
+        ALLOCATE(eps0y(1-ng:nx+ng, 1-ng:ny+ng))
+        ALLOCATE(eps0z(1-ng:nx+ng, 1-ng:ny+ng))
+        ALLOCATE(eps3(1-ng:nx+ng, 1-ng:ny+ng))
+      END IF
     END IF
 !end CONSTEPS
 #endif

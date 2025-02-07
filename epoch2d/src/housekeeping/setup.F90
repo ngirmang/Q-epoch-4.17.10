@@ -396,6 +396,10 @@ CONTAINS
       species_list(ispecies)%bfield_sample_factor = 1.0_num
       species_list(ispecies)%dir_nparts = 0
 #endif
+#ifdef NONLIN
+      species_list(ispecies)%nl_alpha3 = 0.0_num
+      species_list(ispecies)%linear_factor = 1.0_num
+#endif
     END DO
 
     DO ispecies = 1, n_species
@@ -635,16 +639,19 @@ CONTAINS
       iepsy = 1.0_num
       iepsz = 1.0_num
     ELSE
-#ifdef NONLIN_EPS
       epsx = 1.0_num
       epsy = 1.0_num
       epsz = 1.0_num
-      eps0x= 1.0_num
-      eps0y= 1.0_num
-      eps0z= 1.0_num
+      IF (use_eps_n1n2) THEN
+        eps_n1 = 1.0_num
+        eps_n2 = 0.0_num
+      ELSE IF (use_eps3) THEN
+        eps0x= 1.0_num
+        eps0y= 1.0_num
+        eps0z= 1.0_num
 
-      eps3 = 0.0_num
-#endif
+        eps3 = 0.0_num
+      END IF
     END IF
 #endif
     ! Set up random number seed

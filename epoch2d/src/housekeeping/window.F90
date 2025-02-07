@@ -141,14 +141,15 @@ CONTAINS
       CALL shift_field(iepsx, ng)
       CALL shift_field(iepsy, ng)
       CALL shift_field(iepsz, ng)
-    ELSE
-#ifdef NONLIN_EPS
+    ELSE IF (use_eps_n1n2) THEN
+      CALL shift_field(eps_n1, ng)
+      CALL shift_field(eps_n2, ng)
+    ELSE IF (use_eps3) THEN
       CALL shift_field(eps0x, ng)
       CALL shift_field(eps0y, ng)
       CALL shift_field(eps0z, ng)
 
       CALL shift_field(eps3, ng)
-#endif
     END IF
 #endif
     
@@ -185,38 +186,52 @@ CONTAINS
       END IF
 #ifdef CONSTEPS
       
-      ! first, set the CONSTEPS of the incoming cell
+      ! set the epsilon of the incoming cell
 
       CALL set_tokenizer_stagger(c_stagger_centre)
-      parameters%pack_ix = nx
-      DO j = 1-ng, ny+ng
-        parameters%pack_iy = j
+      ! change to order of loops for efficiency
+      IF (use_eps_n1n2) THEN
 
-        vex = 1.0_num ; vey = 1.0_num ; vez = 1.0_num
-        IF (epsx_func%init) &
-             vex = evaluate_with_parameters(epsx_func, parameters, errcode)
-        IF (epsy_func%init) &
-             vey = evaluate_with_parameters(epsy_func, parameters, errcode)
-        IF (epsz_func%init) &
-             vez = evaluate_with_parameters(epsz_func, parameters, errcode)
+        parameters%pack_ix = nx
 
-        IF (.NOT. eps_stored) THEN
-          iepsx(nx:nx+1,j) = 1.0_num / vex
-          iepsy(nx+1,j)    = 1.0_num / vey
-          iepsz(nx+1,j)    = 1.0_num / vez
+        IF (eps_n2_func%init) THEN
+          DO j = 1-ng, ny+ng
+            parameters%pack_iy = j
+            vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)
+            vey = evaluate_with_parameters(eps_n2_func, parameters, errcode)
+            eps_n1(nx:nx+1,j) = vex
+            eps_n2(nx:nx+1,j) = vey
+          END DO
         ELSE
-#ifdef NONLIN_EPS
-          eps0x(nx:nx+1,j) = vex ! confirm this works...
-          eps0y(nx+1,j)    = vey
-          eps0z(nx+1,j)    = vez
-          ! only eps0 moves, eps is essentially storage
-
-          vex = evaluate_with_parameters(eps3_func, parameters, errcode)
-          eps3(nx:nx+1,j) = vex
-#endif
+          DO j = 1-ng, ny+ng
+            parameters%pack_iy = j
+            vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)
+            eps_n1(nx:nx+1,j) = vex
+          END DO
         END IF
-      END DO
-      
+      ELSE ! use dielectric model
+        vex = 1.0_num ; vey = 1.0_num ; vez = 1.0_num
+        DO j = 1-ng, ny+ng
+          IF (epsx_func%init) &
+               vex = evaluate_with_parameters(epsx_func, parameters, errcode)
+          IF (epsy_func%init) &
+               vey = evaluate_with_parameters(epsy_func, parameters, errcode)
+          IF (epsz_func%init) &
+               vez = evaluate_with_parameters(epsz_func, parameters, errcode)
+          IF (eps_stored) THEN
+            eps0x(nx:nx+1,j) = vex
+            eps0y(nx:nx+1,j) = vey
+            eps0z(nx:nx+1,j) = vez
+
+            vex = evaluate_with_parameters(eps3_func, parameters, errcode)
+            eps3(nx:nx+1,j) = vex
+          ELSE
+            iepsx(nx:nx+1,j) = 1.0_num / vex
+            iepsy(nx+1,j)    = 1.0_num / vey
+            iepsz(nx+1,j)    = 1.0_num / vez
+          END IF
+        END DO
+      END IF
 !end CONSTEPS
 #endif
     END IF

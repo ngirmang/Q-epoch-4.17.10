@@ -682,7 +682,7 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
           IF (species_list(i)%eps_off_on_ionise) &
                CALL kill_eps(current%part_pos)
 #endif
@@ -1243,6 +1243,10 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
+#ifdef CONSTEPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
+#endif
         END IF
         current => next
       END DO
@@ -1513,6 +1517,10 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
+#ifdef CONSTEPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
+#endif
         END IF
         current => next
       END DO
@@ -1577,7 +1585,7 @@ CONTAINS
   END SUBROUTINE diminish_partners
 #endif
 
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
   SUBROUTINE kill_eps(pos)
 
     REAL(num), INTENT(IN) :: pos(3)
@@ -1591,12 +1599,15 @@ CONTAINS
     j = FLOOR((pos(2) - y_grid_min_local) / dy + 1.5_num)
 #endif
 
-    IF (eps_stored) THEN
+    IF (use_eps3) THEN
       eps0x(i,j) = 1.0_num
       eps0y(i,j) = 1.0_num
       eps0z(i,j) = 1.0_num
 
       eps3(i,j) = 0
+    ELSE IF (use_eps_n1n2) THEN
+      eps_n1(i,j) = 1.0_num
+      eps_n2(i,j) = 0.0_num
     ELSE
       iepsx(i,j) = 1.0_num
       iepsy(i,j) = 1.0_num

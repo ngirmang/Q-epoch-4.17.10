@@ -590,21 +590,23 @@ MODULE constants
   INTEGER, PARAMETER :: c_dump_part_iy           = 73
   INTEGER, PARAMETER :: c_dump_part_iz           = 74
   INTEGER, PARAMETER :: c_dump_part_pos_z        = 75
-#if defined(CONSTEPS) && defined(NONLIN_EPS)
+#if defined(CONSTEPS)
   INTEGER, PARAMETER :: c_dump_eps_x             = 76
   INTEGER, PARAMETER :: c_dump_eps_y             = 77
   INTEGER, PARAMETER :: c_dump_eps_z             = 78
   INTEGER, PARAMETER :: c_dump_eps3              = 79
-  INTEGER, PARAMETER :: num_vars_to_dump         = 79
+  INTEGER, PARAMETER :: c_dump_n2                = 80
+  INTEGER, PARAMETER :: num_vars_to_dump         = 80
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 75
 #endif
-#elif defined(CONSTEPS) && defined(NONLIN_EPS)
+#elif defined(CONSTEPS)
   INTEGER, PARAMETER :: c_dump_eps_x             = 72
   INTEGER, PARAMETER :: c_dump_eps_y             = 73
   INTEGER, PARAMETER :: c_dump_eps_z             = 74
   INTEGER, PARAMETER :: c_dump_eps3              = 75
-  INTEGER, PARAMETER :: num_vars_to_dump         = 75
+  INTEGER, PARAMETER :: c_dump_n2                = 76
+  INTEGER, PARAMETER :: num_vars_to_dump         = 76
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 71
 #endif

@@ -544,8 +544,9 @@ CONTAINS
       DEALLOCATE(iepsz)
       ALLOCATE(iepsz(1-ng:nx_new+ng, 1-ng:ny_new+ng))
       iepsz = temp
+
     ELSE
-#ifdef NONLIN_EPS
+
       CALL remap_field(epsx, temp)
       DEALLOCATE(epsx)
       ALLOCATE(epsx(1-ng:nx_new+ng, 1-ng:ny_new+ng))
@@ -561,27 +562,47 @@ CONTAINS
       ALLOCATE(epsz(1-ng:nx_new+ng, 1-ng:ny_new+ng))
       epsz = temp
 
-      CALL remap_field(eps0x, temp)
-      DEALLOCATE(eps0x)
-      ALLOCATE(eps0x(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-      eps0x = temp
+      !no need to remap the buffer, but we do need to resize it
+      IF (use_eps_spatial_average) THEN
+        DEALLOCATE(eps_temp)
+        ALLOCATE(eps_temp(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      END IF
 
-      CALL remap_field(eps0y, temp)
-      DEALLOCATE(eps0y)
-      ALLOCATE(eps0y(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-      eps0y = temp
+      IF (use_eps_n1n2) THEN
 
-      CALL remap_field(eps0z, temp)
-      DEALLOCATE(eps0z)
-      ALLOCATE(eps0z(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-      eps0z = temp
+        CALL remap_field(eps_n1, temp)
+        DEALLOCATE(eps_n1)
+        ALLOCATE(eps_n1(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        eps_n1 = temp
 
-      CALL remap_field(eps3, temp)
-      DEALLOCATE(eps3)
-      ALLOCATE(eps3(1-ng:nx_new+ng, 1-ng:ny_new+ng))
-      eps3 = temp
-!end NONLIN_EPS
-#endif
+        CALL remap_field(eps_n2, temp)
+        DEALLOCATE(eps_n2)
+        ALLOCATE(eps_n2(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        eps_n2 = temp
+
+      ELSE IF (use_eps3) THEN
+
+        CALL remap_field(eps0x, temp)
+        DEALLOCATE(eps0x)
+        ALLOCATE(eps0x(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        eps0x = temp
+
+        CALL remap_field(eps0y, temp)
+        DEALLOCATE(eps0y)
+        ALLOCATE(eps0y(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        eps0y = temp
+
+        CALL remap_field(eps0z, temp)
+        DEALLOCATE(eps0z)
+        ALLOCATE(eps0z(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        eps0z = temp
+
+        CALL remap_field(eps3, temp)
+        DEALLOCATE(eps3)
+        ALLOCATE(eps3(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        eps3 = temp
+
+      END IF
     END IF
 !end CONSTEPS
 #endif

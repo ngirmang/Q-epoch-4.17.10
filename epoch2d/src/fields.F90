@@ -117,20 +117,26 @@ CONTAINS
 
 #ifdef NEWPML
     IF (use_newpml) THEN
-      CALL update_e_field_newpml
 
+      CALL update_e_field_newpml ; RETURN
+
+    END IF
+#endif
+
+#ifdef CONSTEPS
+    IF      (use_eps_n1n2) THEN
+
+      CALL update_eps_n1n2
+      CALL update_e_field_eps
       RETURN
 
-#ifdef NONLIN_EPS
     ELSE IF (use_eps3) THEN
 
       CALL update_eps3
       CALL update_e_field_eps
       RETURN
 
-#endif
     END IF
-!end NEWPML
 #endif
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
@@ -354,14 +360,63 @@ CONTAINS
 
   END SUBROUTINE update_e_field
 
-#ifdef NEWPML
-#ifdef NONLIN_EPS
+#ifdef CONSTEPS
+
+  SUBROUTINE update_eps_n1n2
+
+    INTEGER :: ix, iy
+    REAL(num) :: esq, vn
+    ! add chi3, use epsy as a temporary
+
+    IF (saturateable_n2) THEN
+
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
+        esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
+        esq = esq + ez(ix,iy)**2
+
+        vn  = 1.0_num - 1.0_num / (1.0_num + eps_n2(ix,iy)*esq)
+        vn  = vn + eps_n1(ix,iy)
+
+        vn  = vn**2
+
+        epsx(ix,iy) = vn
+        epsy(ix,iy) = vn
+        epsz(ix,iy) = vn
+      END DO
+      END DO
+
+    ELSE
+
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
+        esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
+        esq = esq + ez(ix,iy)**2
+
+        vn  = eps_n1(ix,iy) + eps_n2(ix,iy)*esq
+        vn  = vn**2
+        epsx(ix,iy) = vn
+        epsy(ix,iy) = vn
+        epsz(ix,iy) = vn
+      END DO
+      END DO
+    END IF
+    ! average chi
+    IF (use_eps_spatial_average) CALL spatial_average_eps
+
+  END SUBROUTINE update_eps_n1n2
+
+
+
   SUBROUTINE update_eps3
     
     INTEGER :: ix, iy
     REAL(num) :: esq, t3
-
+    ! add chi3, use epsy as a temporary
     IF (saturateable_eps3) THEN
+
       DO iy = 0,ny
       DO ix = 0,nx
         esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
@@ -374,7 +429,9 @@ CONTAINS
         epsz(ix,iy) = eps0z(ix,iy) + t3
       END DO
       END DO
+
     ELSE
+
       DO iy = 0,ny
       DO ix = 0,nx
         esq =        (0.5_num*(ex(ix-1,iy) + ex(ix,iy)))**2.0_num
@@ -386,9 +443,45 @@ CONTAINS
         epsz(ix,iy) = eps0z(ix,iy) + eps3(ix,iy)*esq
       END DO
       END DO
+
     END IF
+    ! average chi
+    IF (use_eps_spatial_average) CALL spatial_average_eps
 
   END SUBROUTINE update_eps3
+
+  SUBROUTINE spatial_average_eps
+
+    INTEGER :: ix, iy
+    REAL(num) :: a1, a2
+    a1 = eps_a1
+    a2 = (1.0_num - eps_a1)*0.25_num
+
+    DO iy = 0,ny
+    DO ix = 0,nx
+      eps_temp(ix,iy) = a1*epsx(ix,iy) &
+        + a2*( epsx(ix-1,iy) + epsx(ix+1,iy) + epsx(ix,iy-1) + epsx(ix,iy+1))
+    END DO
+    END DO
+    epsx = eps_temp
+    DO iy = 0,ny
+    DO ix = 0,nx
+      eps_temp(ix,iy) = a1*epsy(ix,iy) &
+        + a2*( epsy(ix-1,iy) + epsy(ix+1,iy) + epsy(ix,iy-1) + epsy(ix,iy+1))
+    END DO
+    END DO
+    epsy = eps_temp
+    DO iy = 0,ny
+    DO ix = 0,nx
+      eps_temp(ix,iy) = a1*epsz(ix,iy) &
+        + a2*( epsz(ix-1,iy) + epsz(ix+1,iy) + epsz(ix,iy-1) + epsz(ix,iy+1))
+    END DO
+    END DO
+    epsz = eps_temp
+
+  END SUBROUTINE spatial_average_eps
+
+
 
   SUBROUTINE update_e_field_eps
     
@@ -401,7 +494,7 @@ CONTAINS
     END IF
     
     DO iy = 0, ny
-    DO ix = 0, nx      
+    DO ix = 0, nx
       ciex = 1.0_num / epsx(ix,iy)
       ciey = 1.0_num / epsy(ix,iy)
       ciez = 1.0_num / epsz(ix,iy)
@@ -422,8 +515,6 @@ CONTAINS
     END DO
 
   END SUBROUTINE update_e_field_eps
-!end NONLIN_EPS
-#endif
 
   SUBROUTINE update_e_field_newpml
 
@@ -431,27 +522,20 @@ CONTAINS
     REAL(num) :: ciex, ciey, ciez
     REAL(num) :: ceye, cinv
 
-#ifndef CONSTEPS
-    PRINT '(A)', "NEWPML requires CONSTEPS"
-    CALL abort_code(c_err_bad_setup)
-#endif!CONSTEPS
-
     IF (field_order /= 2) THEN
       PRINT '(A)', "NEWPML is only implemented for yee, field_order == 2"
       CALL abort_code(c_err_bad_setup)
     END IF
-    
-#ifdef NONLIN_EPS
-    IF (use_eps3) THEN
-      CALL update_eps3
+
+    IF (.NOT. eps_stored) THEN
       DO iy = 0, ny
       DO ix = 0, nx
         ceye = pml_eye(ix,iy)
         cinv = pml_inv(ix,iy)
-        
-        ciex = cinv / epsx(ix,iy)
-        ciey = cinv / epsy(ix,iy)
-        ciez = cinv / epsz(ix,iy)
+
+        ciex = iepsx(ix,iy)*cinv
+        ciey = iepsy(ix,iy)*cinv
+        ciez = iepsz(ix,iy)*cinv
       
         ex(ix, iy) = ex(ix, iy)*ceye &
              + ciex * cny * (bz(ix  , iy  ) - bz(ix  , iy-1)) &
@@ -467,19 +551,24 @@ CONTAINS
              - ciez * fac * jz(ix, iy)
       END DO
       END DO
+
       RETURN
     END IF
-#endif
+    IF (use_eps3) THEN
+      CALL update_eps3
+    ELSE IF (use_eps_n1n2) THEN
+      CALL update_eps_n1n2
+    END IF
 
     DO iy = 0, ny
-    DO ix = 0, nx      
+    DO ix = 0, nx
       ceye = pml_eye(ix,iy)
       cinv = pml_inv(ix,iy)
 
-      ciex = iepsx(ix,iy)*cinv
-      ciey = iepsy(ix,iy)*cinv
-      ciez = iepsz(ix,iy)*cinv
-      
+      ciex = cinv / epsx(ix,iy)
+      ciey = cinv / epsy(ix,iy)
+      ciez = cinv / epsz(ix,iy)
+
       ex(ix, iy) = ex(ix, iy)*ceye &
            + ciex * cny * (bz(ix  , iy  ) - bz(ix  , iy-1)) &
            - ciex * fac * jx(ix, iy)
@@ -494,7 +583,7 @@ CONTAINS
            - ciez * fac * jz(ix, iy)
     END DO
     END DO
-      
+
   END SUBROUTINE update_e_field_newpml
 #endif!NEWPML
 

@@ -551,7 +551,6 @@ CONTAINS
       CALL write_field(c_dump_jz, code, 'jz', 'Current/Jz', 'A/m^2', &
           c_stagger_jz, jz)
 #ifdef CONSTEPS
-#ifdef NONLIN_EPS
       IF (eps_stored) THEN
         CALL write_field(c_dump_eps_x, code, 'epsx', &
              'Dielectric Constant in x', 'e0', &
@@ -565,8 +564,10 @@ CONTAINS
         CALL write_field(c_dump_eps3, code, 'eps3', &
              'Kerr Constant', 'm^2/V^2', &
              c_stagger_centre, eps3)
+        CALL write_field(c_dump_n2, code, 'eps_n2', &
+             'Kerr n2', 'm^2/V^2', &
+             c_stagger_centre, eps_n2)
       END IF
-#endif
 #endif
 
       IF (cpml_boundaries) THEN

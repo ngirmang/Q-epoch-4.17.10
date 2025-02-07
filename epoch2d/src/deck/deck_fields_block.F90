@@ -65,13 +65,17 @@ CONTAINS
     LOGICAL :: got_file
 
     errcode = c_err_none
-#ifndef NONLIN_EPS
+#ifndef CONSTEPS
     IF (deck_state == c_ds_first) RETURN
 #else
     IF (str_cmp(element, 'eps3')) THEN
       use_eps3 = .TRUE.
       eps_stored = .TRUE.
-      IF (rank == 0) PRINT '("using eps3")'
+    END IF
+    IF (str_cmp(element, 'eps_n1') &
+         .OR. str_cmp(element, 'eps_n2')) THEN
+      use_eps_n1n2 = .TRUE.
+      eps_stored = .TRUE.
     END IF
     IF (deck_state == c_ds_first) RETURN
 #endif
@@ -203,8 +207,8 @@ CONTAINS
       IF (str_cmp(element, 'eps')) THEN
         IF (got_file) THEN
           CALL load_single_array_from_file(filename, eps0x, offset, errcode)
-          epsy = eps0x
-          epsz = eps0x
+          eps0y = eps0x
+          eps0z = eps0x
         ELSE
           CALL initialise_stack(epsx_func)
           CALL initialise_stack(epsy_func)
@@ -296,8 +300,34 @@ CONTAINS
         RETURN
       END IF
     END IF
-#endif
-#ifdef NONLIN_EPS
+    IF (str_cmp(element, 'eps_n1')) THEN
+      IF (got_file) THEN
+        CALL load_single_array_from_file(filename, eps_n1, offset, errcode)
+      ELSE
+        CALL initialise_stack(eps_n1_func)
+        CALL tokenize(value, eps_n1_func, errcode)
+
+        CALL set_tokenizer_stagger(c_stagger_centre)
+        CALL evaluate_string_in_space(value, eps_n1, &
+               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+      END IF
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'eps_n2')) THEN
+      IF (got_file) THEN
+        CALL load_single_array_from_file(filename, eps_n2, offset, errcode)
+      ELSE
+        CALL initialise_stack(eps_n2_func)
+        CALL tokenize(value, eps_n2_func, errcode)
+
+        CALL set_tokenizer_stagger(c_stagger_centre)
+        CALL evaluate_string_in_space(value, eps_n2, &
+             1-ng, nx+ng, 1-ng, ny+ng, errcode)
+      END IF
+      RETURN
+    END IF
+
     IF (str_cmp(element, 'eps3')) THEN
       IF (got_file) THEN
         CALL load_single_array_from_file(filename, eps3, offset, errcode)
@@ -311,11 +341,22 @@ CONTAINS
       END IF
       RETURN
     END IF
+
     IF (str_cmp(element, 'saturateable_eps3')) THEN
       saturateable_eps3 = as_logical_print(value, element, errcode)
       RETURN
     END IF
 
+    IF (str_cmp(element, 'saturateable_n2')) THEN
+      saturateable_n2 = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'use_eps_spatial_average')) THEN
+      use_eps_spatial_average = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+!end CONSTEPS
 #endif
     
   END FUNCTION fields_block_handle_element
@@ -327,9 +368,12 @@ CONTAINS
     INTEGER :: errcode
     errcode = c_err_none
 
-#ifdef NONLIN_EPS
-    IF (saturateable_eps3) THEN
-      PRINT "('using saturateable eps3')"
+#ifdef CONSTEPS
+    IF (rank == 0) THEN
+      IF (saturateable_eps3) PRINT "('using saturateable eps3')"
+      IF (use_eps_spatial_average) PRINT "('spatially averaging eps')"
+      IF (use_eps_n1n2) PRINT "('using n1 and/or n2')"
+      IF (saturateable_n2) PRINT "('using saturateable n2')"
     END IF
 #endif
 
