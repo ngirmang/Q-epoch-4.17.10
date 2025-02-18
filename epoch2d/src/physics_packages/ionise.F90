@@ -524,6 +524,11 @@ CONTAINS
 #include "triangle/e_part.inc"
 #endif
 
+#ifdef GLOBALFIELD
+        ex_part = ex_part + global_e(1)
+        ey_part = ey_part + global_e(2)
+        ez_part = ez_part + global_e(3)
+#endif
         ! Electric field strength in atomic units
         e_part_mag = fac * SQRT(ex_part**2 + ey_part**2 + ez_part**2) &
             / atomic_electric_field
@@ -827,6 +832,11 @@ CONTAINS
 #include "triangle/e_part.inc"
 #endif
 
+#ifdef GLOBALFIELD
+        ex_part = ex_part + global_e(1)
+        ey_part = ey_part + global_e(2)
+        ez_part = ez_part + global_e(3)
+#endif
         ! Electric field strength in atomic units
         e_part_mag = fac * SQRT(ex_part**2 + ey_part**2 + ez_part**2) &
             / atomic_electric_field
@@ -1107,6 +1117,11 @@ CONTAINS
 #include "triangle/e_part.inc"
 #endif
 
+#ifdef GLOBALFIELD
+        ex_part = ex_part + global_e(1)
+        ey_part = ey_part + global_e(2)
+        ez_part = ez_part + global_e(3)
+#endif
         ! Electric field strength in atomic units
         e_part_mag = fac * SQRT(ex_part**2 + ey_part**2 + ez_part**2) &
             / atomic_electric_field
@@ -1396,6 +1411,11 @@ CONTAINS
 #include "triangle/e_part.inc"
 #endif
 
+#ifdef GLOBALFIELD
+        ex_part = ex_part + global_e(1)
+        ey_part = ey_part + global_e(2)
+        ez_part = ez_part + global_e(3)
+#endif
         ! Electric field strength in atomic units
         e_part_mag = fac * SQRT(ex_part**2 + ey_part**2 + ez_part**2) &
             / atomic_electric_field

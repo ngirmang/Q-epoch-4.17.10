@@ -848,6 +848,11 @@ CONTAINS
 #include "triangle/b_part.inc"
 #endif
 
+#ifdef GLOBALFIELD
+    ex_part = ex_part + global_e(1)
+    ey_part = ey_part + global_e(2)
+    ez_part = ez_part + global_e(3)
+#endif
     ! update particle momenta using weighted fields
     ! ex_part etc are NOT fields at particle, but fac times
     ! field

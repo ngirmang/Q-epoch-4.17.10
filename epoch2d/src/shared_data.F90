@@ -517,6 +517,9 @@ MODULE shared_data
   LOGICAL  use_newpml, use_manualpml
   LOGICAL :: floating_laser=.FALSE.
 #endif!NEWPML 
+#ifdef GLOBALFIELD
+  REAL(num) :: global_e(3) = 0.0_num
+#endif
 
   !----------------------------------------------------------------------------
   ! Core code

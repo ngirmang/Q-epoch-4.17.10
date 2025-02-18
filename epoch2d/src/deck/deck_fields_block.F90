@@ -358,6 +358,20 @@ CONTAINS
     END IF
 !end CONSTEPS
 #endif
+#ifdef GLOBALFIELD
+    IF (str_cmp(element, 'global_ex')) THEN
+      global_e(1) = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'global_ey')) THEN
+      global_e(2) = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'global_ez')) THEN
+      global_e(3) = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+#endif
     
   END FUNCTION fields_block_handle_element
 
