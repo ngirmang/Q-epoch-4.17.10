@@ -294,7 +294,7 @@ CONTAINS
       fnl3 = species_list(ispecies)%nl_alpha3 * dtfac / c !dto2 or dtfac ???
       elinfac = species_list(ispecies)%linear_factor
 !end NONLIN
-#endi
+#endif
 !end BOUND_HARMONIC
 #endif
       !DEC$ VECTOR ALWAYS

@@ -561,10 +561,10 @@ CONTAINS
         CALL write_field(c_dump_eps_z, code, 'epsz', &
              'Dielectric Constant in z', 'e0', &
              c_stagger_centre, epsz)
-        CALL write_field(c_dump_eps3, code, 'eps3', &
+        IF (use_eps3) CALL write_field(c_dump_eps3, code, 'eps3', &
              'Kerr Constant', 'm^2/V^2', &
              c_stagger_centre, eps3)
-        CALL write_field(c_dump_n2, code, 'eps_n2', &
+        IF (use_eps_n1n2) CALL write_field(c_dump_n2, code, 'eps_n2', &
              'Kerr n2', 'm^2/V^2', &
              c_stagger_centre, eps_n2)
       END IF
