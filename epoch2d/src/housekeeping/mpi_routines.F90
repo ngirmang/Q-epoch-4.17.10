@@ -391,7 +391,7 @@ CONTAINS
     ALLOCATE(jx(1-jng:nx+jng, 1-jng:ny+jng))
     ALLOCATE(jy(1-jng:nx+jng, 1-jng:ny+jng))
     ALLOCATE(jz(1-jng:nx+jng, 1-jng:ny+jng))
-#ifdef CONSTEPS
+#if defined(CONSTEPS) || defined(MEDIUM)
     IF (.NOT. eps_stored) THEN
       ALLOCATE(iepsx(1-ng:nx+ng, 1-ng:ny+ng))
       ALLOCATE(iepsy(1-ng:nx+ng, 1-ng:ny+ng))
@@ -412,7 +412,9 @@ CONTAINS
         ALLOCATE(eps3(1-ng:nx+ng, 1-ng:ny+ng))
       END IF
     END IF
-!end CONSTEPS
+    IF (n_media > 0) &
+         ALLOCATE(media_density(1-ng:nx+ng, 1-ng:ny+ng, n_media))
+!end CONSTEPS or MEDIUM
 #endif
 
     ! Setup the particle lists

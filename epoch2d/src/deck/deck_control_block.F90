@@ -461,7 +461,10 @@ CONTAINS
     ELSE IF (str_cmp(element, 'print_ionisation_counts')) THEN
       print_ionisation_counts = as_logical_print(value, element, errcode)
 #endif
-
+#ifdef MERGE_PARTICLES
+    ELSE IF (str_cmp(element, 'particle_merge_frequency')) THEN
+      merge_nsteps = as_integer_print(value, element, errcode)
+#endif
     ELSE
       errcode = c_err_unknown_element
 

@@ -122,6 +122,13 @@ CONTAINS
         CYCLE
       END IF
 
+#ifdef MEDIUM
+      IF (species%medium_species) THEN
+        n = species%medium_index
+        media_density(:,:,n) = species_density
+        CYCLE
+      END IF
+#endif
 #ifdef PER_SPECIES_WEIGHT
       CALL non_uniform_load_particles(species_density, species, &
           ic%density_min, ic%density_max)

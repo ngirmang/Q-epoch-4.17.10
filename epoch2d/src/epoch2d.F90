@@ -58,7 +58,9 @@ PROGRAM pic
 #ifdef NEWPML
   USE boundary
 #endif
-
+#ifdef MEDIUM
+  USE media
+#endif
   IMPLICIT NONE
 
   INTEGER :: ispecies, ierr
@@ -131,6 +133,9 @@ PROGRAM pic
   CALL set_maxwell_solver
 #ifdef NEWPML
   CALL set_newpml
+#endif
+#ifdef MEDIUM
+  CALL initialise_media
 #endif
   CALL deallocate_ic
   CALL update_particle_count
@@ -233,7 +238,11 @@ PROGRAM pic
             CALL particle_collisions
           END IF
         END IF
-
+        
+#ifdef MEDIUM
+        CALL ionise_media
+        CALL media_particle_production
+#endif
         ! Early beta version of particle splitting operator
         IF (use_split) CALL split_particles
 

@@ -528,7 +528,7 @@ CONTAINS
     DEALLOCATE(ez)
     ALLOCATE(ez(1-ng:nx_new+ng, 1-ng:ny_new+ng))
     ez = temp
-#ifdef CONSTEPS
+#if defined(CONSTEPS) || defined(MEDIUM)
     IF (.NOT. eps_stored) THEN
       CALL remap_field(iepsx, temp)
       DEALLOCATE(iepsx)
@@ -604,7 +604,22 @@ CONTAINS
 
       END IF
     END IF
-!end CONSTEPS
+
+    IF (n_media > 0) THEN ! so far, temp_sum is not used yet
+
+      ALLOCATE(temp_sum(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
+
+      DO i=1,n_media
+        CALL remap_field(media_density(:,:,i), temp_sum(:,:,i))
+      END DO
+      DEALLOCATE(media_density)
+      ALLOCATE(media_density(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
+      media_density = temp_sum
+      DEALLOCATE(temp_sum) ! later, the size is assumed...sigh
+      
+    END IF
+         
+!end CONSTEPS or MEDIA
 #endif
 
 

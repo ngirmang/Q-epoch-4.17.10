@@ -76,6 +76,14 @@ MODULE deck_species_block
   LOGICAL :: species_eps_off
   LOGICAL, DIMENSION(:), POINTER :: eps_off
 #endif
+#ifdef MERGE_PARTICLES
+  LOGICAL :: species_merge
+  LOGICAL, DIMENSION(:), POINTER :: merges
+  REAL(num) :: species_en_sig, species_pc_sig
+  REAL(num), DIMENSION(:), POINTER :: en_sigs, pc_sigs
+  INTEGER :: species_max_nppc
+  INTEGER, DIMENSION(:), POINTER :: max_nppcs
+#endif
 
   INTEGER, DIMENSION(2*c_ndims) :: species_bc_particle
 
@@ -119,6 +127,12 @@ CONTAINS
 #ifdef CONSTEPS
       ALLOCATE(eps_off(4))
       eps_off = .FALSE.
+#endif
+#ifdef MERGE_PARTICLES
+      ALLOCATE(merges(4))
+      ALLOCATE(en_sigs(4))
+      ALLOCATE(pc_sigs(4))
+      ALLOCATE(max_nppcs(4))
 #endif
       release_species = ''
     END IF
@@ -176,6 +190,12 @@ CONTAINS
 #ifdef CONSTEPS
         species_list(i)%eps_off_on_ionise = eps_off(i)
 #endif
+#ifdef MERGE_PARTICLES
+        species_list(i)%merge = merges(i)
+        species_list(i)%merge_max_energy_sig = en_sigs(i)
+        species_list(i)%merge_max_pcomp_sig = pc_sigs(i)
+        species_list(i)%merge_max_particles = max_nppcs(i)
+#endif
       END DO
 #ifdef BOUND_HARMONIC
       IF (rank == 0) THEN
@@ -214,6 +234,12 @@ CONTAINS
 #endif
 #ifdef CONSTEPS
       DEALLOCATE(eps_off)
+#endif
+#ifdef MERGE_PARTICLES
+      DEALLOCATE(merges)
+      DEALLOCATE(en_sigs)
+      DEALLOCATE(pc_sigs)
+      DEALLOCATE(max_nppcs)
 #endif
 
       DO i = 1, n_species
@@ -397,6 +423,12 @@ CONTAINS
 #ifdef CONSTEPS
     species_eps_off = .FALSE.
 #endif
+#ifdef MERGE_PARTICLES
+    species_merge = .FALSE.
+    species_en_sig = 2.0_num
+    species_pc_sig = 2.0_num
+    species_max_nppc=2000000000
+#endif
 
   END SUBROUTINE species_block_start
 
@@ -450,6 +482,16 @@ CONTAINS
 #ifdef CONSTEPS
       eps_off(n_species) = species_eps_off
       species_eps_off = .FALSE.
+#endif
+#ifdef MERGE_PARTICLES
+      merges(n_species) = species_merge
+      species_merge = .FALSE.
+      en_sigs(n_species) = species_en_sig 
+      species_en_sig = 2.0_num
+      pc_sigs(n_species) = species_pc_sig
+      species_pc_sig = 2.0_num
+      max_nppcs(n_species) = species_max_nppc
+      species_max_nppc = 2000000000
 #endif
       IF (n_secondary_species_in_block > 0) THEN
         ! Create an empty species for each ionisation energy listed in species
@@ -597,6 +639,24 @@ CONTAINS
 #ifdef CONSTEPS
     IF (str_cmp(element, 'eps_off_on_ionise')) THEN
       species_eps_off = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+#endif
+#ifdef MERGE_PARTICLES
+    IF (str_cmp(element, 'merge_particles')) THEN
+      species_merge = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_energy_sigma')) THEN
+      species_en_sig = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_pcomp_sigma')) THEN
+      species_pc_sig = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_particles_per_cell')) THEN
+      species_max_nppc = as_integer_print(value, element, errcode)
       RETURN
     END IF
 #endif
@@ -1485,6 +1545,12 @@ CONTAINS
 #ifdef CONSTEPS
     CALL grow_array(eps_off, n_species)
 #endif
+#ifdef MERGE_PARTICLES
+    CALL grow_array(merges, n_species)
+    CALL grow_array(en_sigs, n_species)
+    CALL grow_array(pc_sigs, n_species)
+    CALL grow_array(max_nppcs, n_species)
+#endif
 
     species_names(n_species) = TRIM(name)
     ionise_to_species(n_species) = -1
@@ -1511,6 +1577,12 @@ CONTAINS
 #endif
 #ifdef CONSTEPS
     eps_off(n_species) = .FALSE.
+#endif
+#ifdef MERGE_PARTICLES
+    merges(n_species) = .FALSE.
+    en_sigs(n_species) = 2.0_num
+    pc_sigs(n_species) = 2.0_num
+    max_nppcs(n_species)= 2000000000
 #endif
 
     RETURN
@@ -1595,6 +1667,17 @@ CONTAINS
     CALL grow_array(eps_off,n_species)
     eps_off(n_species) = .FALSE.
 #endif
+#ifdef MERGE_PARTICLES
+    CALL grow_array(merges,n_species)
+    merges(n_species) = .FALSE.
+    CALL grow_array(en_sigs,n_species)
+    en_sigs(n_species) = 2.0_num
+    CALL grow_array(pc_sigs,n_species)
+    pc_sigs(n_species) = 2.0_num
+    CALL grow_array(max_nppcs,n_species)
+    max_nppcs(n_species) = 2000000000
+#endif
+
     RETURN
   END SUBROUTINE create_ionisation_species_from_name
 

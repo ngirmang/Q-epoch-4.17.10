@@ -248,7 +248,6 @@ MODULE shared_data
     LOGICAL :: dont_transfer_cpu
     REAL(num) :: diminish_factor
 
-    LOGICAL :: medium_species = .FALSE.
 #ifdef NONLIN
     REAL(num) :: nl_alpha3 = 0.0_num
     REAL(num) :: linear_factor = 1.0_num
@@ -258,6 +257,18 @@ MODULE shared_data
 #endif
 #ifdef CONSTEPS
     LOGICAL :: eps_off_on_ionise = .FALSE.
+#endif
+#if defined(BOUND_HARMONIC) || defined(MEDIUM)
+    LOGICAL :: medium_species = .FALSE.
+#endif
+#ifdef MEDIUM
+    INTEGER :: medium_index = -1
+#endif
+#ifdef MERGE_PARTICLES
+    LOGICAL :: merge = .FALSE.
+    INTEGER :: merge_max_particles = 200000000
+    REAL(num) :: merge_max_energy_sig = 2.0_num
+    REAL(num) :: merge_max_pcomp_sig =  2.0_num
 #endif
 
     ! Specify if species is background species or not
@@ -516,9 +527,38 @@ MODULE shared_data
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: pml_inv, pml_eye, pml_sig
   LOGICAL  use_newpml, use_manualpml
   LOGICAL :: floating_laser=.FALSE.
-#endif!NEWPML 
+#endif!NEWPML
 #ifdef GLOBALFIELD
   REAL(num) :: global_e(3) = 0.0_num
+#endif
+#ifdef MEDIUM
+
+  ! NEW SHIT: medium model, essentially, my particle-less attempt to model long
+  !           pulse propagation
+  INTEGER :: n_media = 0 ! number of ioniseable media
+
+  TYPE medium
+    CHARACTER(string_length) :: name
+    INTEGER :: species = -1
+
+    LOGICAL :: is_electron_species = .FALSE. ! this is an electron medium model
+
+    ! minimum production density to produce a electron macroparticle
+    REAL(num) :: particle_create_density = HUGE(1.0_num)
+    REAL(num) :: next_create_min = HUGE(1.0_num)
+
+    INTEGER :: nmax_create = 2000000
+
+    LOGICAL :: use_field_ionisation = .FALSE.
+    LOGICAL :: use_collisional_ionisation = .FALSE.
+
+    REAL(num) :: eps_n = 1.0_num ! not implemented yet
+    REAL(num) :: eps_n2= 0.0
+  END type medium
+
+  TYPE(medium), DIMENSION(:), POINTER :: media_list
+  REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: media_density
+  INTEGER :: ielectron_medium = -1
 #endif
 
   !----------------------------------------------------------------------------
@@ -640,6 +680,9 @@ MODULE shared_data
   INTEGER, DIMENSION(:), ALLOCATABLE :: coll_ionisation_counts
   INTEGER, DIMENSION(:), ALLOCATABLE :: last_field_ionisation_counts
   INTEGER, DIMENSION(:), ALLOCATABLE :: last_coll_ionisation_counts
+#endif
+#ifdef MERGE_PARTICLES
+  INTEGER :: merge_nsteps = -1
 #endif
 
   INTEGER :: maxwell_solver = c_maxwell_solver_yee

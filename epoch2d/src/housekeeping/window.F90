@@ -106,8 +106,8 @@ CONTAINS
   SUBROUTINE shift_fields
 
     INTEGER :: j
-#ifdef CONSTEPS
-    INTEGER :: ix, iy, errcode
+#if defined(CONSTEPS) || defined(MEDIUM)
+    INTEGER :: n, species, errcode
     TYPE(parameter_pack) :: parameters
     REAL(num) :: vex,vey,vez
 #endif
@@ -136,7 +136,7 @@ CONTAINS
       CALL shift_field(cpml_psi_bzy, ng)
     END IF
 
-#ifdef CONSTEPS
+#if defined(CONSTEPS) || defined(MEDIUM)
     IF (.NOT. eps_stored) THEN
       CALL shift_field(iepsx, ng)
       CALL shift_field(iepsy, ng)
@@ -150,6 +150,12 @@ CONTAINS
       CALL shift_field(eps0z, ng)
 
       CALL shift_field(eps3, ng)
+    END IF
+
+    IF (n_media > 0) THEN
+      DO n = 1, n_media
+        CALL shift_field(media_density(:,:,n), ng)
+      END DO
     END IF
 #endif
     
@@ -189,10 +195,10 @@ CONTAINS
       ! set the epsilon of the incoming cell
 
       CALL set_tokenizer_stagger(c_stagger_centre)
+      parameters%pack_ix = nx
+
       ! change to order of loops for efficiency
       IF (use_eps_n1n2) THEN
-
-        parameters%pack_ix = nx
 
         IF (eps_n2_func%init) THEN
           DO j = 1-ng, ny+ng
@@ -232,7 +238,27 @@ CONTAINS
           END IF
         END DO
       END IF
-!end CONSTEPS
+
+      ! handle media
+      IF (n_media > 0) THEN
+        media: DO n = 1, n_media
+          species = media_list(n)%species
+          IF (.NOT. species_list(species)%density_function%init) THEN
+            media_density(nx:nx+1,j,n) = 0.0_num
+          END IF
+
+          DO j = 1-ng, ny+ng
+            parameters%pack_iy = j
+            vex = evaluate_with_parameters( &
+                 species_list(species)%density_function, &
+                 parameters, errcode)
+
+            media_density(nx:nx+1,j,n) = vex
+          END DO
+        END DO media
+      END IF
+
+!end CONSTEPS or MEDIUM
 #endif
     END IF
     

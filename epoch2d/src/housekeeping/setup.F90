@@ -633,7 +633,7 @@ CONTAINS
     jy = 0.0_num
     jz = 0.0_num
 
-#ifdef CONSTEPS
+#if defined(CONSTEPS) || defined(MEDIUM)
     IF (.NOT. eps_stored) THEN
       iepsx = 1.0_num
       iepsy = 1.0_num
@@ -653,6 +653,7 @@ CONTAINS
         eps3 = 0.0_num
       END IF
     END IF
+    media_density = 0.0_num
 #endif
     ! Set up random number seed
     seed = 7842432
