@@ -224,12 +224,12 @@ CONTAINS
               / (omega * atomic_time)) + 1, num)
           multi_constant(i) = factorial(k_photons_exponent(i))
 
-          PRINT "('k_photons_exponent(',I1,') before modify=',ES9.3)", &
-               i, k_photons_exponent(i)
-          PRINT "('k(',I1,')! =',ES9.3)", &
-               i, multi_constant(i)
-          PRINT "('n(',I1,')! =',I2.2)", &
-               i, species_list(i)%n
+!          PRINT "('k_photons_exponent(',I1,') before modify=',ES9.3)", &
+!               i, k_photons_exponent(i)
+!          PRINT "('k(',I1,')! =',ES9.3)", &
+!               i, multi_constant(i)
+!          PRINT "('n(',I1,')! =',I2.2)", &
+!               i, species_list(i)%n
 
           ! If K! is too large then the multiphoton ionisation rate is zero
           IF (multi_constant(i) < SQRT(HUGE(0.0_num))) THEN
@@ -243,8 +243,8 @@ CONTAINS
             multi_constant(i) = 0.0_num
           END IF
 
-          PRINT "('multi_constant(',I1,') before divide=',ES9.3)", &
-               i, multi_constant(i)
+!          PRINT "('multi_constant(',I1,') before divide=',ES9.3)", &
+!               i, multi_constant(i)
           ! Constant in multiphoton equations, calculated like this to trap any
           ! floating underflow
           IF (ABS(multi_constant(i)) > c_tiny) THEN
@@ -252,8 +252,8 @@ CONTAINS
                 / (8.0_num * pi * omega * atomic_time))**k_photons_exponent(i) &
                 / multi_constant(i)
           END IF
-          PRINT "('multi_constant(',I1,') after divide=',ES9.3)", &
-               i, multi_constant(i)
+!          PRINT "('multi_constant(',I1,') after divide=',ES9.3)", &
+!               i, multi_constant(i)
 
           ! Energy in K photons
           k_photons_energy(i) = &
@@ -585,12 +585,12 @@ CONTAINS
           ! If we're in the multiphoton regime, make sure the electric field
           ! strength is larger than the minimum value for multiphoton
           ELSE IF (e_part_mag > smallest_e_mag(current_state)) THEN
-            PRINT *, "multi_constant = ", multi_constant(current_state)
-            PRINT *, "cap = ", adk_multiphoton_cap(current_state)
+!            PRINT *, "multi_constant = ", multi_constant(current_state)
+!            PRINT *, "cap = ", adk_multiphoton_cap(current_state)
             rate = MIN(adk_multiphoton_cap(current_state), &
                 multi_constant(current_state) &
                 * e_part_mag**k_photons_exponent(current_state))
-            PRINT *, "k_photons_exponent = ", k_photons_exponent(current_state)
+!            PRINT *, "k_photons_exponent = ", k_photons_exponent(current_state)
             multiphoton_ionised = .TRUE.
           ELSE
             ! If we got here then the electric field strength was too small for

@@ -127,13 +127,12 @@ CONTAINS
 
     REAL(num) :: nus(ngm), dels(ngm), A0s(ngm), Es(ngm), rate_pref(ngm)
     REAL(num) :: eff_n, dkap, vm1, vm2, vacc, v, w0, pref, x, omi, Fi
-    REAL(num) :: yst
 
 
     ! you should converge by 10000s
     INTEGER, PARAMETER :: nterm_max = 100000, nterm_min = 50, &
-         ny = 9999 ! 10K ought to be enough for anyone
-    REAL(num) :: w0_f(0:ny), ys(0:ny)
+         nw = 9999 ! 10K ought to be enough for anyone
+    REAL(num) :: w0_f(0:nw), ws(0:nw), dw, wst
     INTEGER :: i,j,n
 
     IF (ma .GT. 0 ) THEN
@@ -189,29 +188,29 @@ CONTAINS
           ! can focus on the region near the peak which is always at
           ! the right edge of the integrand region
           
-          ! calculating the y start
+          ! calculating the w start
           !
-          ! exp(yst**2 - x**2) == vst
-          ! yst**2 - x**2 == log(vst)
-          ! yst = sqrt(log(vst) + x**2)
+          ! exp(wst**2 - x**2) == vst
+          ! wst**2 - x**2 == log(vst)
+          ! wst = sqrt(log(vst) + x**2)
 
           !  check that exp(-x**2) isn't greater than vst
         ELSEIF ( exp(-x**2) .gt. vst ) THEN
-          yst = 0
-          dy = (x - yst) / ny
+          wst = 0
+          dw = (x - wst) / nw
           ! now allocate the integrand
           ! we do it in reverse order, knowing the convergence of
           ! the integral
-          ys = [(x - dy*j, j=0, ny )]
-          w0_f = exp(ys**2 - x**2)
-          w0 = simps(w0_f, ny, dy)
+          ws = [(x - dw*j, j=0, nw )]
+          w0_f = exp(ws**2 - x**2)
+          w0 = simps(w0_f, nw, dw)
           ! otherwise, use the vst calculation in the above comment
         ELSE
-          yst = sqrt(log(vst)+x**2)
-          dy = (x - yst) / ny
-          ys = [(x - dy*j, j=0, ny )]
-          w0_f = exp(ys**2 - x**2)
-          w0 = simps(w0_f, ny, dy)
+          wst = sqrt(log(vst)+x**2)
+          dw = (x - wst) / nw
+          ws = [(x - dw*j, j=0, nw )]
+          w0_f = exp(ws**2 - x**2)
+          w0 = simps(w0_f, nw, dw)
         END IF
 
         v  = w0*exp(-alpha(i)*(n-dels(i)))*pref
@@ -518,10 +517,12 @@ CONTAINS
 
   SUBROUTINE ionise_media
 
-    INTEGER :: n, ne, i, ix, iy, cur_spec, elec_spec, next_spec, nextm, &
-         ncreate, nmax_create, ntmp, nl, nn, next_me
+    INTEGER :: im, ne, i, ix, iy, cur_spec, elec_spec, next_spec, nextm, &
+         ncreate, nmax_create, ntmp, nl, nn, next_me, &
+         ncreate_total
     REAL(num) enorm, rate, dN, cur_N, U0, &
-         next_create_min, next_create_max, next_weight
+         next_create_min, next_create_max, next_weight, &
+         enorm_max
     TYPE(particle), POINTER :: cur, newe, newi, next
     TYPE(medium), POINTER :: cur_medium, next_medium
 
@@ -534,15 +535,20 @@ CONTAINS
          red, fion, eiics, ion_charge, full_ion_charge, my_dN
     REAL(num) :: e_p(3)
 
-    DO n=1,n_media
+    DO im=1,n_media
 
-      cur_medium => media_list(n)
+      cur_medium => media_list(im)
       cur_spec = cur_medium%species
+
+      ncreate_total = 0
+      enorm_max = 0.0_num
 
       IF (.NOT. species_list(cur_spec)%ionise) CYCLE
 
       next_spec = species_list(cur_spec)%ionise_to_species
       next_media = species_list(next_spec)%medium_species
+      next_create_min = media_list(im)%next_create_min
+      nmax_create = media_list(im)%nmax_create
 
       IF (next_media) &
            nextm = species_list(next_spec)%medium_index
@@ -567,7 +573,8 @@ CONTAINS
       DO iy = 1,ny
 ixlp: DO ix = 1,nx
 
-        cur_N = media_density(ix,iy,n)
+        cur_N = media_density(ix,iy,im)
+        ncreate = 0
         dN  = 0
         IF (cur_medium%use_collisional_ionisation) THEN
           nelec = species_list(elec_spec)%secondary_list(ix,iy)%count
@@ -622,13 +629,16 @@ ixlp: DO ix = 1,nx
           END DO
         END IF ! collisional ionisation
 
-        IF (media_list(n)%use_field_ionisation) THEN
+        IF (media_list(im)%use_field_ionisation) THEN
         
           ! need to set up temporal averaging
-          enorm = 0.5_num * SQRT( (ex(ix,iy) + ex(ix-1,iy))**2 &
-                               +  (ey(ix,iy) + ey(ix,iy-1))**2 &
-                               +   ez(ix,iy)**2)
-          rate  = ppt_ionise(enorm, n)
+          enorm = SQRT( 0.25_num*(ex(ix,iy) + ex(ix-1,iy  ))**2 &
+                     +  0.25_num*(ey(ix,iy) + ey(ix  ,iy-1))**2 &
+                              +   ez(ix,iy)**2)
+
+          IF (enorm > enorm_max) enorm_max = enorm
+
+          rate  = ppt_ionise(enorm, im)
           dN = rate * dt * cur_N
         END IF
 
@@ -652,8 +662,6 @@ ixlp: DO ix = 1,nx
           ! create ions and electrons with same random positions
               CALL create_media_ions_electrons(ncreate, next_weight, &
                    next_spec, elec_spec, ix, iy)
-
-              CYCLE ixlp
             
         ELSE 
           !ion species
@@ -673,8 +681,17 @@ ixlp: DO ix = 1,nx
           END IF
         END IF
 
+        ncreate_total = ncreate_total + ncreate
+
       END DO ixlp
       END DO
+
+!       IF (rank == 0) THEN
+!         PRINT &
+! '("media_ionise: step=",I6.6,",ncreate=",I8.8,",peak E=",ES9.3)',&
+! step, ncreate_total, enorm_max
+!       END IF
+
     END DO ! each medium
 
   END SUBROUTINE ionise_media
@@ -721,7 +738,7 @@ ixlp: DO ix = 1,nx
 
     DO n=1,ncreate
       CALL create_particle(cur)
-      cur%weight = weight
+      cur%weight   = weight*dx*dy
       cur%part_pos = [ xb(ix) + random()*dx,&
                        yb(iy) + random()*dy,&
                        0.0_num ]
@@ -746,7 +763,7 @@ ixlp: DO ix = 1,nx
 
     DO n=1, ncreate
       CALL create_particle(cur_ion)
-      cur_ion%weight = weight
+      cur_ion%weight   = weight*dx*dy
       cur_ion%part_pos = [xb(ix) + random()*dx,&
                           yb(iy) + random()*dy,&
                           0.0_num ]
@@ -754,9 +771,9 @@ ixlp: DO ix = 1,nx
       CALL add_particle_to_partlist(&
            species_list(ion_species)%secondary_list(ix,iy), cur_ion)
       CALL create_particle(cur_elec)
-      cur_elec%weight = weight
+      cur_elec%weight   = cur_ion%weight
       cur_elec%part_pos = cur_ion%part_pos
-      cur_elec%part_ip = cur_elec%part_ip
+      cur_elec%part_ip  = cur_elec%part_ip
       CALL add_particle_to_partlist(&
            species_list(elec_species)%secondary_list(ix,iy), cur_elec)
 

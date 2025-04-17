@@ -653,7 +653,7 @@ CONTAINS
         eps3 = 0.0_num
       END IF
     END IF
-    media_density = 0.0_num
+    IF (n_media > 1) media_density = 0.0_num
 #endif
     ! Set up random number seed
     seed = 7842432
