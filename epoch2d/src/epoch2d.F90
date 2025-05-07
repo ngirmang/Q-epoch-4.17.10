@@ -61,6 +61,9 @@ PROGRAM pic
 #ifdef MEDIUM
   USE media
 #endif
+#ifdef MERGE_PARTICLES
+  USE merge, only: merge_particles
+#endif
   IMPLICIT NONE
 
   INTEGER :: ispecies, ierr
@@ -246,6 +249,10 @@ PROGRAM pic
         ! Early beta version of particle splitting operator
         IF (use_split) CALL split_particles
 
+#ifdef MERGE_PARTICLES
+        IF (merge_nsteps > 0 .AND. MOD(step, merge_nsteps) == 0) &
+             CALL merge_particles
+#endif
         CALL reattach_particles_to_mainlist
       END IF
       IF (use_particle_migration) CALL migrate_particles(step)

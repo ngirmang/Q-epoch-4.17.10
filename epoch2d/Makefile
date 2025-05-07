@@ -69,8 +69,8 @@ endif
 # gfortran
 # ========
 ifeq ($(strip $(COMPILER)),gfortran)
-  #FFLAGS = -O3 -g -std=f2003
-  FFLAGS = -O0 -g -std=f2008
+  FFLAGS = -O3 -g -std=f2008
+  #FFLAGS = -O0 -g -std=f2008
 
   GNUVER := $(shell gfortran -dumpversion | head -1 \
       | sed 's/[^0-9\.]*\([0-9\.]\+\).*/\1/')
@@ -181,7 +181,7 @@ DEFINES := $(DEFINE)
 # added 
 DEFINES += $(D)BOUND_HARMONIC $(D)PARTICLE_ID $(D)WINDOW_NO_EXTRA
 DEFINES += $(D)NEWPML $(D)COLL_ELECCHECK $(D)SKIP_ZEROPARTS $(D)CONSTEPS
-DEFINES += $(D)NONLIN $(D)GLOBALFIELD $(D)MEDIUM
+DEFINES += $(D)NONLIN $(D)GLOBALFIELD $(D)MEDIUM $(D)MERGE_PARTICLES
 
 # The following are a list of pre-processor defines which can be added to
 # the above line modifying the code behaviour at compile time.
@@ -327,7 +327,7 @@ SRCFILES = balance.F90 boundary.F90 bremsstrahlung.F90 calc_df.F90 \
   shared_data.F90 shunt.F90 simple_io.F90 split_particle.F90 stack.f90 \
   strings.f90 strings_advanced.f90 terminal_controls.F90 timer.f90 \
   tokenizer_blocks.f90 utilities.F90 version_data.F90 welcome.F90 window.F90 \
-  media.F90 deck_medium_block.F90
+  media.F90 deck_medium_block.F90 merge.F90
 
 OBJFILES := $(SRCFILES:.f90=.o)
 OBJFILES := $(OBJFILES:.F90=.o)
@@ -504,7 +504,7 @@ dist_fn.o: dist_fn.F90 mpi_subtype_control.o particles.o $(SDFMOD)
 epoch2d.o: epoch2d.F90 balance.o bremsstrahlung.o calc_df.o collisions.o \
   current_smooth.o deck.o diagnostics.o fields.o finish.o helper.o ic_module.o \
   injectors.o ionise.o mpi_routines.o particle_migration.o particles.o \
-  photons.o setup.o split_particle.o welcome.o window.o media.o
+  photons.o setup.o split_particle.o welcome.o window.o media.o merge.o
 	$(FC) -c $(FFLAGS) $(FLTCONS) -o $(OBJDIR)/$@ $(PREPROFLAGS) $<
 evaluate.o: evaluate.F90 shunt.o stack.o
 evaluator_blocks.o: evaluator_blocks.F90 custom_parser.o stack.o strings.o
@@ -522,6 +522,7 @@ iterators.o: iterators.F90 particle_id_hash.o particle_pointer_advance.o \
   partlist.o
 laser.o: laser.f90 custom_laser.o evaluate.o
 media.o: media.F90 shared_data.o random_generator.o utilities.o partlist.o
+merge.o: merge.F90 shared_data.o utilities.o partlist.o
 mpi_routines.o: mpi_routines.F90 helper.o
 mpi_subtype_control.o: mpi_subtype_control.f90 shared_data.o
 numerics.o: numerics.f90 constants.o

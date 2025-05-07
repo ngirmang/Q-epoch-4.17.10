@@ -160,6 +160,14 @@ CONTAINS
       RETURN
     END IF
 
+    ! enable quantised ionisation, only ionise next species
+    ! strictly in units of next_creation_density
+    IF (str_cmp(element, 'quantised')) THEN
+      media_list(current_block)%quantised = &
+           as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
     errcode = c_err_unknown_element
 
   END FUNCTION medium_block_handle_element

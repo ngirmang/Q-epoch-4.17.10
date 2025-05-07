@@ -83,6 +83,8 @@ MODULE deck_species_block
   REAL(num), DIMENSION(:), POINTER :: en_sigs, pc_sigs
   INTEGER :: species_max_nppc
   INTEGER, DIMENSION(:), POINTER :: max_nppcs
+  INTEGER :: species_merge_start
+  INTEGER, DIMENSION(:), POINTER :: merge_starts
 #endif
 
   INTEGER, DIMENSION(2*c_ndims) :: species_bc_particle
@@ -133,6 +135,7 @@ CONTAINS
       ALLOCATE(en_sigs(4))
       ALLOCATE(pc_sigs(4))
       ALLOCATE(max_nppcs(4))
+      ALLOCATE(merge_starts(4))
 #endif
       release_species = ''
     END IF
@@ -195,22 +198,30 @@ CONTAINS
         species_list(i)%merge_max_energy_sig = en_sigs(i)
         species_list(i)%merge_max_pcomp_sig = pc_sigs(i)
         species_list(i)%merge_max_particles = max_nppcs(i)
+        species_list(i)%merge_start = merge_starts(i)
+        IF (species_list(i)%merge .AND. &
+            species_list(i)%merge_start == 0) THEN
+          species_list(i)%merge_start = &
+            species_list(i)%merge_max_particles
+        END IF
+!end MERGE_PARTICLES
 #endif
       END DO
 #ifdef BOUND_HARMONIC
       IF (rank == 0) THEN
         DO i = 1, n_species
-          PRINT '(a,a,3ES9.2)', TRIM(species_list(i)%name),&
-               ' omega=', species_list(i)%harmonic_omega
+          PRINT '(a," omega=",3ES10.2)', TRIM(species_list(i)%name),&
+            species_list(i)%harmonic_omega
 #ifdef NONLIN
           PRINT '(a," alpha3=", ES9.2)', TRIM(species_list(i)%name),&
                species_list(i)%nl_alpha3
           PRINT '(a," linear factor=", ES9.2)', TRIM(species_list(i)%name),&
                species_list(i)%linear_factor
+!end NONLIN
 #endif
         END DO
       END IF
-
+!end BOUND_HARMONIC
 #endif
 
       DEALLOCATE(bc_particle_array)
@@ -240,6 +251,7 @@ CONTAINS
       DEALLOCATE(en_sigs)
       DEALLOCATE(pc_sigs)
       DEALLOCATE(max_nppcs)
+      DEALLOCATE(merge_starts)
 #endif
 
       DO i = 1, n_species
@@ -428,6 +440,7 @@ CONTAINS
     species_en_sig = 2.0_num
     species_pc_sig = 2.0_num
     species_max_nppc=2000000000
+    species_merge_start = 0
 #endif
 
   END SUBROUTINE species_block_start
@@ -492,6 +505,8 @@ CONTAINS
       species_pc_sig = 2.0_num
       max_nppcs(n_species) = species_max_nppc
       species_max_nppc = 2000000000
+      merge_starts(n_species) = species_merge_start
+      species_merge_start = 0
 #endif
       IF (n_secondary_species_in_block > 0) THEN
         ! Create an empty species for each ionisation energy listed in species
@@ -655,8 +670,12 @@ CONTAINS
       species_pc_sig = as_real_print(value, element, errcode)
       RETURN
     END IF
-    IF (str_cmp(element, 'merge_max_particles_per_cell')) THEN
+    IF (str_cmp(element, 'merge_target_particles_per_cell')) THEN
       species_max_nppc = as_integer_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_start_threshold')) THEN
+      species_merge_start = as_integer_print(value, element, errcode)
       RETURN
     END IF
 #endif
@@ -1550,6 +1569,7 @@ CONTAINS
     CALL grow_array(en_sigs, n_species)
     CALL grow_array(pc_sigs, n_species)
     CALL grow_array(max_nppcs, n_species)
+    CALL grow_array(merge_starts, n_species)
 #endif
 
     species_names(n_species) = TRIM(name)
@@ -1583,6 +1603,7 @@ CONTAINS
     en_sigs(n_species) = 2.0_num
     pc_sigs(n_species) = 2.0_num
     max_nppcs(n_species)= 2000000000
+    merge_starts(n_species) = 0
 #endif
 
     RETURN
@@ -1676,6 +1697,8 @@ CONTAINS
     pc_sigs(n_species) = 2.0_num
     CALL grow_array(max_nppcs,n_species)
     max_nppcs(n_species) = 2000000000
+    CALL grow_array(merge_starts,n_species)
+    merge_starts(n_species) = 0
 #endif
 
     RETURN

@@ -269,6 +269,7 @@ MODULE shared_data
     INTEGER :: merge_max_particles = 200000000
     REAL(num) :: merge_max_energy_sig = 2.0_num
     REAL(num) :: merge_max_pcomp_sig =  2.0_num
+    INTEGER :: merge_start = 0
 #endif
 
     ! Specify if species is background species or not
@@ -551,6 +552,7 @@ MODULE shared_data
 
     LOGICAL :: use_field_ionisation = .FALSE.
     LOGICAL :: use_collisional_ionisation = .FALSE.
+    LOGICAL :: quantised = .FALSE.
 
     REAL(num) :: eps_n = 1.0_num ! not implemented yet
     REAL(num) :: eps_n2= 0.0

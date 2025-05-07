@@ -318,6 +318,7 @@ CONTAINS
     ! look for a useable laser for an omega
     IF (n_media == 0) RETURN
 
+    err_laser = 0
     laser_set = .FALSE.
     DO i=1,4
       SELECT CASE(i)
@@ -520,9 +521,13 @@ CONTAINS
     INTEGER :: im, ne, i, ix, iy, cur_spec, elec_spec, next_spec, nextm, &
          ncreate, nmax_create, ntmp, nl, nn, next_me, &
          ncreate_total
+    INTEGER :: ncreate_totalr, ierr
+
     REAL(num) enorm, rate, dN, cur_N, U0, &
-         next_create_min, next_create_max, next_weight, &
-         enorm_max
+         next_create_min, next_create_max, next_weight
+    REAL(num) enorm_max, min_N, max_N
+    REAL(num) min_Nr, max_Nr, enorm_maxr
+
     TYPE(particle), POINTER :: cur, newe, newi, next
     TYPE(medium), POINTER :: cur_medium, next_medium
 
@@ -542,6 +547,8 @@ CONTAINS
 
       ncreate_total = 0
       enorm_max = 0.0_num
+      min_N = HUGE(1.0_num)
+      max_N = 0.0_num
 
       IF (.NOT. species_list(cur_spec)%ionise) CYCLE
 
@@ -629,8 +636,8 @@ ixlp: DO ix = 1,nx
           END DO
         END IF ! collisional ionisation
 
-        IF (media_list(im)%use_field_ionisation) THEN
-        
+        IF (cur_medium%use_field_ionisation) THEN
+
           ! need to set up temporal averaging
           enorm = SQRT( 0.25_num*(ex(ix,iy) + ex(ix-1,iy  ))**2 &
                      +  0.25_num*(ey(ix,iy) + ey(ix  ,iy-1))**2 &
@@ -639,30 +646,35 @@ ixlp: DO ix = 1,nx
           IF (enorm > enorm_max) enorm_max = enorm
 
           rate  = ppt_ionise(enorm, im)
-          dN = rate * dt * cur_N
+          dN = dN + rate * dt * cur_N
         END IF
 
+        IF (cur_medium%quantised) &
+          dN = FLOOR(dN/next_create_min)*next_create_min
+
+        ! make sure to subtract at most the remaining medium density
+        dN = MIN(dN, cur_N)
 
         IF(.NOT. next_media .OR. .NOT. elec_media) THEN
           IF (dN .GT. next_create_min) THEN
             ncreate = NINT(dN / next_create_min)
             next_weight = next_create_min
-            
+
             IF (ncreate .GT. nmax_create) THEN
               next_weight = dN / nmax_create
               ncreate = nmax_create
             END IF
           ELSE 
             ncreate = 0
+            dN = 0
           END IF
         END IF
 
         IF (.NOT. next_media .AND. .NOT. elec_media &
-            .AND. ncreate > 0) THEN
+            .AND. ncreate > 0 .AND. dN > 0.0_num ) THEN
           ! create ions and electrons with same random positions
-              CALL create_media_ions_electrons(ncreate, next_weight, &
-                   next_spec, elec_spec, ix, iy)
-            
+          CALL create_media_ions_electrons(ncreate, next_weight, &
+               next_spec, elec_spec, ix, iy)
         ELSE 
           !ion species
           IF (next_media) THEN
@@ -680,17 +692,31 @@ ixlp: DO ix = 1,nx
                  elec_spec, ix, iy)
           END IF
         END IF
+        media_density(ix,iy,im) = cur_N - dN
 
         ncreate_total = ncreate_total + ncreate
+
+        IF      ( media_density(ix,iy,im) < min_N ) THEN
+          min_N = media_density(ix,iy,im)
+        ELSE IF ( media_density(ix,iy,im) > max_N ) THEN
+          max_N = media_density(ix,iy,im)
+        END IF
 
       END DO ixlp
       END DO
 
-!       IF (rank == 0) THEN
-!         PRINT &
-! '("media_ionise: step=",I6.6,",ncreate=",I8.8,",peak E=",ES9.3)',&
-! step, ncreate_total, enorm_max
-!       END IF
+      CALL MPI_REDUCE(ncreate_total, ncreate_totalr, 1, MPI_INTEGER, &
+           MPI_SUM, 0, comm, ierr)
+      CALL MPI_REDUCE(min_N, min_Nr, 1, mpireal, MPI_MIN, 0, comm, ierr)
+      CALL MPI_REDUCE(max_N, max_Nr, 1, mpireal, MPI_MAX, 0, comm, ierr)
+      CALL MPI_REDUCE(enorm_max, enorm_maxr, 1, mpireal, MPI_MAX, 0, &
+           comm, ierr)
+
+!     IF (rank == 0) THEN
+!         PRINT '("media_ionise: step=",I7.7,", ncreate=",I5.5,", peak E=",&
+!           & ES9.3,", max_N=",ES9.3,", min_N=",ES13.7)',&
+!           step, ncreate_totalr, enorm_maxr, max_Nr, min_Nr
+!     END IF
 
     END DO ! each medium
 
@@ -773,7 +799,7 @@ ixlp: DO ix = 1,nx
       CALL create_particle(cur_elec)
       cur_elec%weight   = cur_ion%weight
       cur_elec%part_pos = cur_ion%part_pos
-      cur_elec%part_ip  = cur_elec%part_ip
+      cur_elec%part_ip  = cur_ion%part_ip
       CALL add_particle_to_partlist(&
            species_list(elec_species)%secondary_list(ix,iy), cur_elec)
 
