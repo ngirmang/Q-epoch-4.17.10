@@ -25,6 +25,12 @@ MODULE shared_data
 
   IMPLICIT NONE
 
+#ifdef BOUND_HARMONIC
+#ifndef CONSTEPS
+#error "we now require BOUND_HARMONIC and CONSTEPS to be compiled together"
+#endif
+#endif
+
   ! This type represents parameters given to the parser.
   ! It can be extended by a developer freely
   ! It is the responsibility of the developer to ensure that a parameter is

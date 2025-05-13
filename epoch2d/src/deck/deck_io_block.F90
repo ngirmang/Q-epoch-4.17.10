@@ -640,6 +640,10 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'number_density')) THEN
       elementselected = c_dump_number_density
+#ifdef MEDIUM
+    ELSE IF (str_cmp(element, 'medium_density')) THEN
+      elementselected = c_dump_medium_density
+#endif
 
     ELSE IF (str_cmp(element, 'ppc') &
         .OR. str_cmp(element, 'particles_per_cell')) THEN
@@ -858,6 +862,9 @@ CONTAINS
         IF (mask_element == c_dump_jy) bad = .FALSE.
         IF (mask_element == c_dump_jz) bad = .FALSE.
         IF (mask_element == c_dump_total_energy_sum) bad = .FALSE.
+#ifdef MEDIUM
+        IF (mask_element == c_dump_medium_density) bad = .FALSE.
+#endif
         IF (bad) THEN
           IF (rank == 0 .AND. IAND(mask, c_io_species) /= 0) THEN
             DO iu = 1, nio_units ! Print to stdout and to file

@@ -857,6 +857,10 @@ CONTAINS
             c_stagger_cell_centre, calc_poynt_flux, array, fluxdir(1:3), &
             dim_tags)
 
+#ifdef MEDIUM
+        CALL write_nspecies_medium_density(code) ! finalise then try
+#endif
+
         IF (isubset /= 1) THEN
           DO i = 1, n_species
             CALL append_partlist(species_list(i)%attached_list, &
@@ -2533,6 +2537,322 @@ CONTAINS
 
 
 
+#ifdef MEDIUM
+  SUBROUTINE write_nspecies_medium_density(code)
+
+    INTEGER, INTENT(IN) :: code
+
+    CHARACTER(LEN=*), PARAMETER :: &
+         block_id='medium_density', name='Medium_Density', &
+         units='1/m^3'
+    INTEGER, PARAMETER :: id = c_dump_medium_density
+
+    REAL(num), DIMENSION(:,:), ALLOCATABLE :: reduced
+    INTEGER, DIMENSION(c_ndims) :: dims
+
+    INTEGER, PARAMETER :: stagger = c_stagger_cell_centre
+    INTEGER :: ispecies, io, mask, idir, ndirs, iav
+    INTEGER :: i, ii, rnx, j, jj, rny
+    INTEGER :: i0, i1, j0, j1
+    INTEGER :: subtype, subarray, rsubtype, rsubarray
+    CHARACTER(LEN=c_id_length) :: temp_block_id, temp_grid_id
+    CHARACTER(LEN=c_max_string_length) :: temp_name
+    LOGICAL :: convert, dump_sum, dump_species, dump_skipped
+    LOGICAL :: normal_id, restart_id, unaveraged_id, dump_part
+    TYPE(averaged_data_block), POINTER :: avg
+    TYPE(io_block_type), POINTER :: iob
+    TYPE(subset), POINTER :: sub
+    INTEGER, DIMENSION(2,c_ndims) :: ranges, ran_no_ng
+    INTEGER, DIMENSION(c_ndims) :: new_dims
+    INTEGER :: im
+
+    im = -1
+
+    mask = iomask(c_dump_medium_density)
+    IF (IAND(mask, code) == 0) RETURN
+    IF (IAND(mask, c_io_never) /= 0) RETURN
+
+    ! This is a normal dump and normal output variable
+    normal_id = IAND(IAND(code, mask), IOR(c_io_always, c_io_full)) /= 0
+
+    IF (.NOT.normal_id) RETURN
+
+    ! If this isn't a medium species, don't proceed.
+
+    ! This is a restart dump and a restart variable
+    restart_id = IAND(IAND(code, mask), c_io_restartable) /= 0
+    ! The variable is either averaged or has snapshot specified
+    unaveraged_id = IAND(mask, c_io_averaged) == 0 &
+        .OR. IAND(mask, c_io_snapshot) /= 0
+
+    convert = IAND(mask, c_io_dump_single) /= 0 .AND. .NOT.restart_id
+
+    IF (convert) THEN
+      subtype  = subtype_field_r4
+      subarray = subarray_field_r4
+    ELSE
+      subtype  = subtype_field
+      subarray = subarray_field
+    END IF
+
+    dims = (/nx_global, ny_global/)
+
+    dump_species = unaveraged_id .AND. IAND(mask, c_io_species) /= 0
+
+    IF (.NOT. dump_species) RETURN
+
+    IF (isubset == 1) THEN
+      dump_skipped = .FALSE.
+      dump_part = .FALSE.
+    ELSE
+      sub => subset_list(isubset-1)
+      dump_skipped = sub%skip
+      dump_part = sub%space_restrictions
+      IF (convert) THEN
+        rsubtype  = sub%subtype_r4
+        rsubarray = sub%subarray_r4
+      ELSE
+        rsubtype  = sub%subtype
+        rsubarray = sub%subarray
+      END IF
+    END IF
+
+    CALL build_species_subset
+    ! Calculate the subsection dimensions and ranges
+    IF (dump_part) THEN
+      ranges = cell_global_ranges(global_ranges(sub))
+      DO i = 1, c_ndims
+        IF (ranges(2,i) <= ranges(1,i)) THEN
+          skipped_any_set = .TRUE.
+          RETURN
+        END IF
+      END DO
+      new_dims = (/ ranges(2,1) - ranges(1,1), ranges(2,2) - ranges(1,2) /)
+      ranges = cell_local_ranges(global_ranges(sub))
+      ran_no_ng = cell_section_ranges(ranges) + ng + 1
+    END IF
+
+    IF (dump_skipped) THEN
+      rnx = sub%n_local(1)
+      rny = sub%n_local(2)
+
+      IF (.NOT.ALLOCATED(reduced)) ALLOCATE(reduced(rnx,rny))
+
+      temp_grid_id = 'grid/r_' // TRIM(sub%name)
+
+      DO ispecies = 1, n_species
+        IF (IAND(io_list(ispecies)%dumpmask, code) == 0) CYCLE
+        IF (species_list(ispecies)%medium_index <= 0) CYCLE
+
+        im = species_list(ispecies)%medium_index
+
+        CALL check_name_length('species', &
+             'Derived/' // TRIM(name) // '/' // TRIM(io_list(ispecies)%name))
+
+        temp_block_id = TRIM(block_id) &
+             // '/' // TRIM(io_list(ispecies)%name)
+        temp_name = &
+             'Derived/' // TRIM(name) // '/' // TRIM(io_list(ispecies)%name)
+
+        CALL check_name_length('subset', &
+             TRIM(temp_name) // '/Reduced_' // TRIM(sub%name))
+
+        temp_block_id = TRIM(temp_block_id) // '/r_' // TRIM(sub%name)
+        temp_name = TRIM(temp_name) // '/Reduced_' // TRIM(sub%name)
+
+        jj = sub%n_start(2) + 1
+        DO j = 1, rny
+          ii = sub%n_start(1) + 1
+          DO i = 1, rnx
+            reduced(i,j) = media_density(ii,jj,im)
+            ii = ii + sub%skip_dir(1)
+          END DO
+          jj = jj + sub%skip_dir(2)
+        END DO
+
+        CALL sdf_write_plain_variable(sdf_handle, TRIM(temp_block_id), &
+             TRIM(temp_name), TRIM(units), sub%n_global, stagger, &
+             TRIM(temp_grid_id), reduced, rsubtype, rsubarray, convert)
+
+        sub%dump_field_grid = .TRUE.
+      END DO
+    ELSE ! not skipped
+      DO ispecies = 1, n_species
+        IF (IAND(io_list(ispecies)%dumpmask, code) == 0) CYCLE
+        IF (species_list(ispecies)%medium_index <= 0) CYCLE
+
+        im = species_list(ispecies)%medium_index
+
+        CALL check_name_length('species', &
+             'Derived/' // TRIM(name) // '/' // TRIM(io_list(ispecies)%name))
+
+        temp_block_id = TRIM(block_id) &
+             // '/' // TRIM(io_list(ispecies)%name)
+        temp_name = &
+             'Derived/' // TRIM(name) // '/' // TRIM(io_list(ispecies)%name)
+
+        IF (dump_part) THEN
+          ! First subset is main dump so there wont be any restrictions
+          temp_grid_id = 'grid/' // TRIM(sub%name)
+
+          i0 = ran_no_ng(1,1); i1 = ran_no_ng(2,1) - 1
+          j0 = ran_no_ng(1,2); j1 = ran_no_ng(2,2) - 1
+          IF (i1 < i0) THEN
+            i0 = 1
+            i1 = i0
+          END IF
+          IF (j1 < j0) THEN
+            j0 = 1
+            j1 = j0
+          END IF
+
+          CALL sdf_write_plain_variable(sdf_handle, TRIM(temp_block_id), &
+              TRIM(temp_name), TRIM(units), new_dims, stagger, temp_grid_id, &
+              media_density(i0:i1,j0:j1,im), rsubtype, rsubarray, convert)
+          sub%dump_field_grid = .TRUE.
+        ELSE
+          CALL sdf_write_plain_variable(sdf_handle, TRIM(temp_block_id), &
+              TRIM(temp_name), TRIM(units), dims, stagger, 'grid', &
+              media_density(:,:,im), subtype, subarray, convert)
+          dump_field_grid = .TRUE.
+        END IF
+      END DO ! ispecies
+    END IF ! if skipped
+
+    IF (ALLOCATED(reduced)) DEALLOCATE(reduced)
+
+    IF (isubset /= 1) RETURN
+
+    ! Write averaged data
+    DO io = 1, n_io_blocks
+      iob => io_block_list(io)
+      IF (.NOT.iob%dump) CYCLE
+
+      mask = iob%dumpmask(id)
+      IF (IAND(mask, c_io_averaged) == 0) CYCLE
+
+      avg => iob%averaged_data(id)
+      IF (.NOT.avg%started) CYCLE
+
+      IF (avg%dump_single) THEN
+        avg%r4array = avg%r4array / REAL(avg%real_time, r4)
+
+        ! for now, we simply remove the ability to dump full averaged
+
+        IF (avg%n_species > 0) THEN
+          iav = avg%species_sum
+          DO ispecies = 1, avg%n_species
+            IF (IAND(io_list(ispecies)%dumpmask, code) == 0) CYCLE
+
+            CALL check_name_length('species', &
+                'Derived/' // TRIM(name) &
+                // '_averaged/' // TRIM(io_list(ispecies)%name))
+
+            temp_block_id = TRIM(block_id) &
+                // '_averaged/' // TRIM(io_list(ispecies)%name)
+            temp_name = &
+                'Derived/' // TRIM(name) &
+                // '_averaged/' // TRIM(io_list(ispecies)%name)
+
+            iav = iav + 1
+            CALL sdf_write_plain_variable(sdf_handle, TRIM(temp_block_id), &
+                TRIM(temp_name), TRIM(units), dims, stagger, 'grid', &
+                avg%r4array(:,:,iav), subtype_field_r4, subarray_field_r4)
+
+            dump_field_grid = .TRUE.
+          END DO
+        END IF
+
+        avg%r4array = 0.0_num
+      ELSE ! avg%dump_single
+        avg%array = avg%array / avg%real_time
+
+        IF (avg%n_species > 0) THEN
+          iav = avg%species_sum
+          DO ispecies = 1, avg%n_species
+            IF (IAND(io_list(ispecies)%dumpmask, code) == 0) CYCLE
+
+            CALL check_name_length('species', &
+                'Derived/' // TRIM(name) &
+                // '_averaged/' // TRIM(io_list(ispecies)%name))
+
+            temp_block_id = TRIM(block_id) &
+                // '_averaged/' // TRIM(io_list(ispecies)%name)
+            temp_name = &
+                'Derived/' // TRIM(name) &
+                // '_averaged/' // TRIM(io_list(ispecies)%name)
+
+            iav = iav + 1
+            CALL sdf_write_plain_variable(sdf_handle, TRIM(temp_block_id), &
+                 TRIM(temp_name), TRIM(units), dims, stagger, 'grid', &
+                 avg%array(:,:,iav), subtype_field, subarray_field)
+          END DO
+
+          dump_field_grid = .TRUE.
+        END IF
+
+        avg%array = 0.0_num
+      END IF
+
+      avg%real_time = 0.0_num
+      avg%started = .FALSE.
+    END DO ! n_blocks
+
+  END SUBROUTINE write_nspecies_medium_density
+
+
+
+  SUBROUTINE write_full_medium_density(code)
+
+    INTEGER, INTENT(IN) :: code
+
+    CHARACTER(LEN=*), PARAMETER :: &
+         block_id='full_media_density', name='Full_Medium_Density', &
+         units='1/m^3'
+
+    INTEGER, DIMENSION(c_ndims+1) :: dims
+
+    INTEGER, PARAMETER :: stagger = c_stagger_cell_centre
+    INTEGER :: io, mask
+    INTEGER :: i, ii, rnx, j, jj, rny
+    INTEGER :: i0, i1, j0, j1
+    INTEGER :: subtype, subarray, rsubtype, rsubarray
+    CHARACTER(LEN=c_id_length) :: temp_block_id, temp_grid_id
+    CHARACTER(LEN=c_max_string_length) :: temp_name
+    LOGICAL :: convert, dump_sum, dump_species, dump_skipped
+    LOGICAL :: normal_id, restart_id, unaveraged_id, dump_part
+    TYPE(averaged_data_block), POINTER :: avg
+    TYPE(io_block_type), POINTER :: iob
+    TYPE(subset), POINTER :: sub
+    INTEGER, DIMENSION(2,c_ndims) :: ranges, ran_no_ng
+    INTEGER, DIMENSION(c_ndims) :: new_dims
+    INTEGER :: im
+
+    mask = iomask(c_dump_medium_density)
+    IF (IAND(mask, code) == 0) RETURN
+    IF (IAND(mask, c_io_never) /= 0) RETURN
+
+    ! This is a normal dump and normal output variable
+    normal_id = IAND(IAND(code, mask), IOR(c_io_always, c_io_full)) /= 0
+    ! This is a restart dump and a restart variable
+    restart_id = IAND(IAND(code, mask), c_io_restartable) /= 0
+    IF (.NOT.normal_id .OR. .NOT. restart_id) RETURN
+
+    subtype = subtype_field
+    subarray= subarray_field
+
+    dims = [nx_global, ny_global, n_media]
+
+    ! CALL sdf_write_plain_variable(sdf_handle, &
+    !     TRIM(block_id), TRIM(name), TRIM(units), &
+    !     dims, stagger, 'grid', media&
+        
+
+  END SUBROUTINE write_full_medium_density
+
+
+
+#endif
   SUBROUTINE build_species_subset
 
     INTEGER :: i, l
