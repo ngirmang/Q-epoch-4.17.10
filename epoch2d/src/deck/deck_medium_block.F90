@@ -26,7 +26,7 @@ MODULE deck_medium_block
   PUBLIC :: medium_block_end, medium_block_handle_element, medium_block_check
 
   INTEGER :: current_block
-  
+  LOGICAL :: dump_rates, dump_keldyshs
 CONTAINS
 
   SUBROUTINE medium_deck_initialise
@@ -56,6 +56,7 @@ CONTAINS
     current_block = current_block + 1
     IF (deck_state == c_ds_first) n_media = n_media + 1
 
+    dump_rates = .FALSE. ; dump_keldyshs = .FALSE.
   END SUBROUTINE medium_block_start
 
 
@@ -70,6 +71,7 @@ CONTAINS
     species = media_list(current_block)%species
     species_list(species)%medium_species = .TRUE.
     species_list(species)%medium_index = current_block
+    media_list(current_block)%dump_ionisation_rates = dump_rates .AND. dump_keldyshs
     
     iq = NINT(species_list(species)%charge/q0)
     ! check if this is an electron species
@@ -164,6 +166,26 @@ CONTAINS
     ! strictly in units of next_creation_density
     IF (str_cmp(element, 'quantised')) THEN
       media_list(current_block)%quantised = &
+           as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
+    ! dump ionisation rates as a file for this
+    IF (str_cmp(element, 'dump_ionisation_rates')) THEN
+      media_list(current_block)%ionisation_file = value
+      dump_rates = .TRUE.
+      RETURN
+    END IF
+
+    ! dump ionisation rates as a file for this
+    IF (str_cmp(element, 'dump_keldyshs')) THEN
+      media_list(current_block)%gamma_file = value
+      dump_keldyshs = .TRUE.
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'probablistic_submin')) THEN
+      media_list(current_block)%use_prob = &
            as_logical_print(value, element, errcode)
       RETURN
     END IF

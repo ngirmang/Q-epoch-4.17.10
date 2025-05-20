@@ -23,6 +23,7 @@ MODULE media
   USE random_generator, only : random
   USE utilities
   USE partlist
+  USE random_generator
 
   IMPLICIT NONE
   PRIVATE
@@ -241,6 +242,8 @@ CONTAINS
 
   END SUBROUTINE calculate_ppt_rates
 
+
+
   ! simpsons' 3/8th rule with fast2sum
   ! assumes ny is divisible by 3
   REAL(num) FUNCTION simps(ds, ny, dy)
@@ -270,6 +273,8 @@ CONTAINS
     simps = simps * dy * 0.375_num ! 3/8
 
   END FUNCTION simps
+
+
 
   SUBROUTINE calculate_keldysh_quantities(&
        pref, Fi, ofexp, Qi, omega, U0, l, ma)
@@ -302,6 +307,37 @@ CONTAINS
 
   END SUBROUTINE calculate_keldysh_quantities
 
+
+
+  SUBROUTINE dump_rates(im)
+
+    INTEGER, INTENT(IN) :: im
+    INTEGER ih
+
+    ih = im + 100
+
+    IF (rank .NE. 0) RETURN
+
+    PRINT '("dumping ionisation rates")'
+
+    OPEN(ih, file=media_list(im)%gamma_file, access='stream')
+
+    WRITE(ih) ngm
+    WRITE(ih) gms
+
+    CLOSE(ih)
+
+    ih = im + 200
+
+    OPEN(ih, file=media_list(im)%ionisation_file, access='stream')
+
+    WRITE(ih) omega
+    WRITE(ih) ngm
+    WRITE(ih) ppt_rates
+
+    CLOSE(ih)
+
+  END SUBROUTINE dump_rates
 
   ! Do most of the calculations on a per-species basis once at start of
   ! simulation to save on computational time
@@ -429,6 +465,7 @@ CONTAINS
            keldysh_Fi(im), &
            keldysh_fexp(im), &
            ion_charge, omega, U0, l, ma)
+      IF ( media_list(im)%dump_ionisation_rates ) CALL dump_rates(im)
     END DO
 
   END SUBROUTINE initialise_media
@@ -523,15 +560,15 @@ CONTAINS
          ncreate_total
     INTEGER :: ncreate_totalr, ierr
 
-    REAL(num) enorm, rate, dN, cur_N, U0, &
+    REAL(num) enorm, rate, dN, cur_N, U0, dN_field, &
          next_create_min, next_create_max, next_weight
-    REAL(num) enorm_max, min_N, max_N
-    REAL(num) min_Nr, max_Nr, enorm_maxr
+    REAL(num) enorm_max, min_N, max_N, rate_max
+    REAL(num) min_Nr, max_Nr, enorm_maxr, rate_maxr
 
     TYPE(particle), POINTER :: cur, newe, newi, next
     TYPE(medium), POINTER :: cur_medium, next_medium
 
-    LOGICAL :: next_media, elec_media
+    LOGICAL :: next_media, elec_media, use_probsm
 
     ! collisional ionisation
     INTEGER(8) :: nelec
@@ -547,6 +584,8 @@ CONTAINS
 
       ncreate_total = 0
       enorm_max = 0.0_num
+      rate_max  = 0.0_num
+
       min_N = HUGE(1.0_num)
       max_N = 0.0_num
 
@@ -556,6 +595,7 @@ CONTAINS
       next_media = species_list(next_spec)%medium_species
       next_create_min = media_list(im)%next_create_min
       nmax_create = media_list(im)%nmax_create
+      use_probsm = media_list(im)%use_prob
 
       IF (next_media) &
            nextm = species_list(next_spec)%medium_index
@@ -583,6 +623,37 @@ ixlp: DO ix = 1,nx
         cur_N = media_density(ix,iy,im)
         ncreate = 0
         dN  = 0
+
+        IF (cur_medium%use_field_ionisation) THEN
+
+          ! need to set up temporal averaging
+          enorm = SQRT( 0.25_num*(ex(ix,iy) + ex(ix-1,iy  ))**2 &
+                     +  0.25_num*(ey(ix,iy) + ey(ix  ,iy-1))**2 &
+                              +   ez(ix,iy)**2)
+
+          IF (enorm > enorm_max) enorm_max = enorm
+
+          rate  = ppt_ionise(enorm, im)
+
+          ! don't touch dN if enorm is too small
+          IF (enorm .GE. 1.0e2_num) THEN
+
+            dN = rate * dt * cur_N
+
+            IF (use_probsm .AND. dN .LT. next_create_min) THEN
+              IF (random() .LT. 1.0_num - exp(-rate*dt)) THEN
+                dN = next_create_min
+              ELSE
+                dN = 0.0_num
+              END IF
+            END IF
+
+            IF (rate .GT. rate_max) rate_max = rate
+
+          END IF ! enorm .lt. 1d2
+
+        END IF ! use field ionisation
+
         IF (cur_medium%use_collisional_ionisation) THEN
           nelec = species_list(elec_spec)%secondary_list(ix,iy)%count
           cur => species_list(elec_spec)%secondary_list(ix,iy)%head
@@ -636,18 +707,6 @@ ixlp: DO ix = 1,nx
           END DO
         END IF ! collisional ionisation
 
-        IF (cur_medium%use_field_ionisation) THEN
-
-          ! need to set up temporal averaging
-          enorm = SQRT( 0.25_num*(ex(ix,iy) + ex(ix-1,iy  ))**2 &
-                     +  0.25_num*(ey(ix,iy) + ey(ix  ,iy-1))**2 &
-                              +   ez(ix,iy)**2)
-
-          IF (enorm > enorm_max) enorm_max = enorm
-
-          rate  = ppt_ionise(enorm, im)
-          dN = dN + rate * dt * cur_N
-        END IF
 
         IF (cur_medium%quantised) &
           dN = FLOOR(dN/next_create_min)*next_create_min
@@ -656,7 +715,7 @@ ixlp: DO ix = 1,nx
         dN = MIN(dN, cur_N)
 
         IF(.NOT. next_media .OR. .NOT. elec_media) THEN
-          IF (dN .GT. next_create_min) THEN
+          IF (dN .GE. next_create_min) THEN
             ncreate = NINT(dN / next_create_min)
             next_weight = next_create_min
 
@@ -664,32 +723,33 @@ ixlp: DO ix = 1,nx
               next_weight = dN / nmax_create
               ncreate = nmax_create
             END IF
-          ELSE 
+          ELSE
             ncreate = 0
             dN = 0
           END IF
         END IF
 
-        IF (.NOT. next_media .AND. .NOT. elec_media &
-            .AND. ncreate > 0 .AND. dN > 0.0_num ) THEN
-          ! create ions and electrons with same random positions
-          CALL create_media_ions_electrons(ncreate, next_weight, &
-               next_spec, elec_spec, ix, iy)
-        ELSE 
-          !ion species
-          IF (next_media) THEN
-            media_density(ix,iy,nextm) = media_density(ix,iy,nextm)+dN
-          ELSE IF (ncreate > 0) THEN
-            CALL create_media_particles(ncreate, next_weight,&
-                 next_spec, ix, iy)
-          END IF
-          ! electron species
-          IF (elec_media) THEN
-            media_density(ix,iy,next_me) = &
-                 media_density(ix,iy,next_me) + dN
-          ELSE IF (ncreate > 0) THEN
-            CALL create_media_particles(ncreate, next_weight,&
-                 elec_spec, ix, iy)
+        IF ( dN .GT. 0.0_num .AND. ncreate .GT. 0 ) THEN
+          IF (.NOT. next_media .AND. .NOT. elec_media ) THEN
+            ! create ions and electrons with same random positions
+            CALL create_media_ions_electrons(ncreate, next_weight, &
+                 next_spec, elec_spec, ix, iy)
+          ELSE
+            !ion species
+            IF (next_media) THEN
+              media_density(ix,iy,nextm) = media_density(ix,iy,nextm)+dN
+            ELSE IF (ncreate > 0) THEN
+              CALL create_media_particles(ncreate, next_weight,&
+                   next_spec, ix, iy)
+            END IF
+            ! electron species
+            IF (elec_media) THEN
+              media_density(ix,iy,next_me) = &
+                   media_density(ix,iy,next_me) + dN
+            ELSE IF (ncreate > 0) THEN
+              CALL create_media_particles(ncreate, next_weight,&
+                   elec_spec, ix, iy)
+            END IF
           END IF
         END IF
         media_density(ix,iy,im) = cur_N - dN
@@ -711,12 +771,19 @@ ixlp: DO ix = 1,nx
       CALL MPI_REDUCE(max_N, max_Nr, 1, mpireal, MPI_MAX, 0, comm, ierr)
       CALL MPI_REDUCE(enorm_max, enorm_maxr, 1, mpireal, MPI_MAX, 0, &
            comm, ierr)
+      CALL MPI_REDUCE(rate_max, rate_maxr, 1, mpireal, MPI_MAX, 0, &
+           comm, ierr)
 
-!     IF (rank == 0) THEN
-!         PRINT '("media_ionise: step=",I7.7,", ncreate=",I5.5,", peak E=",&
-!           & ES9.3,", max_N=",ES9.3,", min_N=",ES13.7)',&
-!           step, ncreate_totalr, enorm_maxr, max_Nr, min_Nr
-!     END IF
+      IF (rank == 0 .AND. stdout_frequency .GT. 0 .AND. &
+        MOD(step, stdout_frequency) == 0) THEN
+
+        PRINT '("media_ionise: step=",I7.7,", ncreate=",I5.5,", peak E=",&
+             & ES9.3,", max_N=",ES9.3,", min_N=",ES13.7)',&
+             step, ncreate_totalr, enorm_maxr, max_Nr, min_Nr
+        PRINT '("                            rate_max=",ES9.3)', &
+             rate_maxr
+
+      END IF
 
     END DO ! each medium
 

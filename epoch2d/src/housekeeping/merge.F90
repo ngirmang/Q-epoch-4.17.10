@@ -142,14 +142,12 @@ ncloop:   DO i = 1,ngroup
             cur_weight = cur%weight
             cur_energy = sqrt(cur_v(1)**2+cur_v(2)**2+cur_v(3)**2+1)-1
 
-            avg_energy = avg_energy + cur_energy*cur_weight
             avg_v = avg_v + cur_v*cur_weight
             avg_pos = avg_pos + cur%part_pos*cur_weight
             weight = weight + cur%weight
             cur => cur%next
           END DO
           avg_pos = avg_pos / weight
-          avg_energy = avg_energy / weight
           avg_v = avg_v / weight
 
           NULLIFY(repl)

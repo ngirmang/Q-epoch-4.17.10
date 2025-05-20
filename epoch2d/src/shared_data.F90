@@ -560,6 +560,11 @@ MODULE shared_data
     LOGICAL :: use_collisional_ionisation = .FALSE.
     LOGICAL :: quantised = .FALSE.
 
+    CHARACTER(string_length) :: ionisation_file
+    CHARACTER(string_length) :: gamma_file
+    LOGICAL :: dump_ionisation_rates = .FALSE.
+    LOGICAL :: use_prob = .TRUE.
+
     REAL(num) :: eps_n = 1.0_num ! not implemented yet
     REAL(num) :: eps_n2= 0.0
   END type medium
