@@ -32,6 +32,8 @@ MODULE media
 
   REAL(num), PARAMETER :: c_sq = c**2, e_mass = m0, e_restE = m0*c_sq
 
+
+  REAL(num), PARAMETER :: lowdens = 1.0_num, small_omega = 1.0e-5_num
   ! relevant parameters for PPT
   INTEGER ii              ! 0.2  1.0    20   200
   INTEGER, PARAMETER :: ngm=1  + 400 + 380 + 360
@@ -234,7 +236,7 @@ CONTAINS
       END DO
       A0s(i) = vacc
       rates(i) = rate_pref(i)*A0s(i)*exp(-2.0_num/3.0_num*Fi/Es(i)*gs(i))
-      PRINT '("gm=", ES10.4, ", A0=", ES10.4, ", rate=",ES10.4)',&
+      IF (rank == 0) PRINT '("gm=", ES10.4, ", A0=", ES10.4, ", rate=",ES10.4)',&
            gms(i), A0s(i), rates(i)
     END DO
 
@@ -277,11 +279,11 @@ CONTAINS
 
 
   SUBROUTINE calculate_keldysh_quantities(&
-       pref, Fi, ofexp, Qi, omega, U0, l, ma)
+       pref, Fi, ofexp, Qi, U0, l, ma)
 
     REAL(num), INTENT(OUT) :: pref, Fi, ofexp
     
-    REAL(num), INTENT(IN) :: Qi, omega, U0
+    REAL(num), INTENT(IN) :: Qi, U0
     INTEGER, INTENT(IN) :: l, ma
 
     REAL(num) :: eff_n, dkap, &
@@ -452,9 +454,12 @@ CONTAINS
 
       ma = 0 !for now, we don't do m...
 
-      CALL calculate_ppt_rates(&
-           ppt_rates(:,im), ion_charge, omega, U0, l, ma)
-
+      IF (omega .GT. small_omega) THEN
+        CALL calculate_ppt_rates(&
+             ppt_rates(:,im), ion_charge, omega, U0, l, ma)
+      ELSE
+        IF (rank == 0) PRINT '("skipping ppt for small omega")'
+      END IF
       ! in the very low gamma limit (here, \gamma < 0.2
       ! we do "keldysh" ionisation, really Eq. 59 of PPT with
       ! the ADK approximation for C_nl and the extra factor on
@@ -464,7 +469,7 @@ CONTAINS
            keldysh_prefs(im), &
            keldysh_Fi(im), &
            keldysh_fexp(im), &
-           ion_charge, omega, U0, l, ma)
+           ion_charge, U0, l, ma)
       IF ( media_list(im)%dump_ionisation_rates ) CALL dump_rates(im)
     END DO
 
@@ -500,7 +505,7 @@ CONTAINS
     IF (mygamma .GT. gms(ngm) ) THEN
       rate = 0.0_num
       RETURN
-    ELSE IF (mygamma .LT. gms(1)) THEN
+    ELSE IF (mygamma .LT. gms(1) .OR. omega .LT. small_omega) THEN
       rate = keldysh_ionise_species(E, mygamma, im)
       RETURN
     END IF
@@ -561,21 +566,35 @@ CONTAINS
     INTEGER :: ncreate_totalr, ierr
 
     REAL(num) enorm, rate, dN, cur_N, U0, dN_field, &
-         next_create_min, next_create_max, next_weight
-    REAL(num) enorm_max, min_N, max_N, rate_max
+         next_create_min, next_create_max, next_weight, &
+         rate_f, rate_c, rate_tmp
+
+    REAL(num) enorm_max, min_N, max_N, &
+         rate_max
     REAL(num) min_Nr, max_Nr, enorm_maxr, rate_maxr
 
     TYPE(particle), POINTER :: cur, newe, newi, next
     TYPE(medium), POINTER :: cur_medium, next_medium
 
-    LOGICAL :: next_media, elec_media, use_probsm
+    LOGICAL :: &
+         next_media, & ! the next ionisation state is a medium model
+         elec_media, & ! the ionisation electron is a medium model
+         next_media_only, & ! both next and electrons are media
+                            ! (next_media .AND. elec_media)
+         next_parts_only, & ! both next and electrons are macroparticles
+         any_parts,       & ! (.NOT. next_media .OR. .NOT. elec_media)
+         parts_produced, &  ! any of the next states have macroparticles
+         use_probsm   !  use probablistic ionisation for sub next_create_min
+                      !  ionisation.
 
-    ! collisional ionisation
     INTEGER(8) :: nelec
     INTEGER :: npart
     REAL(num) :: e_p2_st, e_ke_st, e_v_st, e_ke_en, gr, red_inc, red_ion, &
-         red, fion, eiics, ion_charge, full_ion_charge, my_dN
-    REAL(num) :: e_p(3)
+         red, fion, eiics, ion_charge, full_ion_charge, elec_N, my_N
+
+    REAL(num) :: e_p(3), e_pos(3)
+
+    TYPE(particle_list) :: new_e_plist
 
     DO im=1,n_media
 
@@ -602,10 +621,15 @@ CONTAINS
 
       elec_spec = species_list(cur_spec)%release_species
       elec_media = species_list(elec_spec)%medium_species
+      next_media_only = next_media .AND. elec_media
+      any_parts = .NOT. next_media_only
+      next_parts_only = .NOT. next_media .AND. .NOT. elec_media
 
       IF (elec_media) next_me = ielectron_medium
 
       U0 = species_list(cur_spec)%ionisation_energy
+      nn = species_list(cur_spec)%n
+      nl = species_list(cur_spec)%l
 
       IF (cur_medium%use_collisional_ionisation) THEN
         ntmp = next_spec
@@ -616,49 +640,29 @@ CONTAINS
 
         red_ion= e_restE / U0 ! we stay in SI
         ion_charge = species_list(next_spec)%charge
-      END IF
-      DO iy = 1,ny
-ixlp: DO ix = 1,nx
+        rate_c = 0
 
-        cur_N = media_density(ix,iy,im)
-        ncreate = 0
-        dN  = 0
+        DO iy = 1,ny
+  xlp1: DO ix = 1,nx
 
-        IF (cur_medium%use_field_ionisation) THEN
+          cur_N = media_density(ix,iy,im)
 
-          ! need to set up temporal averaging
-          enorm = SQRT( 0.25_num*(ex(ix,iy) + ex(ix-1,iy  ))**2 &
-                     +  0.25_num*(ey(ix,iy) + ey(ix  ,iy-1))**2 &
-                              +   ez(ix,iy)**2)
+          IF (cur_N .LT. lowdens) CYCLE xlp1
 
-          IF (enorm > enorm_max) enorm_max = enorm
+          ncreate = 0
+          rate_c = 0
 
-          rate  = ppt_ionise(enorm, im)
-
-          ! don't touch dN if enorm is too small
-          IF (enorm .GE. 1.0e2_num) THEN
-
-            dN = rate * dt * cur_N
-
-            IF (use_probsm .AND. dN .LT. next_create_min) THEN
-              IF (random() .LT. 1.0_num - exp(-rate*dt)) THEN
-                dN = next_create_min
-              ELSE
-                dN = 0.0_num
-              END IF
-            END IF
-
-            IF (rate .GT. rate_max) rate_max = rate
-
-          END IF ! enorm .lt. 1d2
-
-        END IF ! use field ionisation
-
-        IF (cur_medium%use_collisional_ionisation) THEN
           nelec = species_list(elec_spec)%secondary_list(ix,iy)%count
           cur => species_list(elec_spec)%secondary_list(ix,iy)%head
+          IF (nelec .eq. 0) CYCLE xlp1
 
-          DO ne=1,nelec
+          CALL create_empty_partlist(new_e_plist)
+
+nelp:     DO ne=1,nelec
+            dN = 0
+            rate_c = 0
+            parts_produced = .FALSE.
+
             e_p = cur%part_p
             e_p2_st = e_p(1)**2 + e_p(2)**2 + e_p(3)**2
             e_ke_st = SQRT(e_p2_st*c_sq + (e_restE)**2) - e_restE
@@ -666,8 +670,9 @@ ixlp: DO ix = 1,nx
 
             IF (e_ke_st < U0) THEN
               cur => cur%next
-              CYCLE ixlp
+              CYCLE nelp
             END IF
+
             ! we only implement this for lower Zm and thus restrict to 
             ! A<36 and just use MBELL cross sections (see collisions.F90)
             red_inc = e_ke_st / U0
@@ -687,35 +692,138 @@ ixlp: DO ix = 1,nx
             DO i=1,7
               eiics = eiics + b_bell(nn,nl,i)*(1 - 1.0_num / red_inc)**i
             END DO
-            
-            eiics = (a_bell(nn,nl)*LOG(red_inc) + eiics) / (e_ke_st*U0)
-            
-            eiics = eiics * gr * fion
 
-            rate = eiics*1e-4*e_v_st * cur%weight/dx/dy
+            eiics = (a_bell(nn,nl)*LOG(red_inc) + eiics) * q0**2 / (e_ke_st*U0)
 
-            my_dN = rate*dt*cur_N
-            dN = dN + my_dN
+            eiics = (eiics * gr * fion) * 1.0e-4_num
 
-            !finally, slow electron
-            e_ke_en = e_ke_st - my_dN*U0
-            e_p = e_p*sqrt( ((e_ke_en/e_restE)**2 - 1) / e_p2_st) * m0*c
+            elec_N = cur%weight/dx/dy
+
+            !my_N = MIN(elec_N, cur_N)
+            !rate_c = my_N*eiics*e_v_st
+
+            rate_c = elec_N*eiics*e_v_st
+
+            dN = rate_c * cur_N * dt
+
+            IF (use_probsm .AND. dN .LT. next_create_min) THEN
+              IF (random() .LT. 1.0_num - exp(-rate_c*dt)) THEN
+                dN = next_create_min
+              ELSE
+                dN = 0.0_num
+              END IF
+            END IF
+
+            IF (cur_medium%quantised) &
+              dN = FLOOR(dN/next_create_min)*next_create_min
+
+            dN = MIN(dN, cur_N)
+
+            IF (dN .LT. 1.0_num) THEN
+              cur => cur%next
+              CYCLE nelp
+            END IF
+            IF ( any_parts ) THEN
+              ncreate = NINT(dN / next_create_min)
+              next_weight = next_create_min
+
+              IF (ncreate .GT. nmax_create) THEN
+                next_weight = dN / nmax_create
+                ncreate = nmax_create
+              END IF
+            END IF
+
+            e_pos = cur%part_pos
+            !ion species
+            IF (next_media) THEN
+              media_density(ix,iy,nextm) = &
+                   media_density(ix,iy,nextm) + dN
+            ELSE IF (ncreate > 0) THEN
+              parts_produced = .TRUE.
+              CALL create_media_particles(ncreate, next_weight, &
+                   next_spec, ix, iy, e_pos)
+            END IF
+
+            ! electron species
+            IF (elec_media) THEN
+              media_density(ix,iy,next_me) = &
+                   media_density(ix,iy,next_me) + dN
+            ELSE IF (ncreate > 0) THEN
+              parts_produced = .TRUE.
+              CALL create_collelec_particles(ncreate, next_weight,&
+                   e_pos, new_e_plist)
+            END IF
+
+            IF (parts_produced) THEN
+              e_ke_en = e_ke_st - U0*ncreate
+            ELSE
+              e_ke_en = e_ke_st - U0*dN*dx*dy
+            END IF
+
+            PRINT '("PING, parts_produced=",L1,", ncreate=",I5,&
+                 &", e_ke_en=", ES11.2,", e_pos=",3ES10.1)', &
+                 parts_produced, ncreate, e_ke_en, e_pos
+
+            e_p = e_p*sqrt( ((e_ke_en/e_restE + 1)**2 - 1) / e_p2_st) * m0*c
 
             cur%part_p = e_p
 
+            media_density(ix,iy,im) = cur_N - dN
+
+            ncreate_total = ncreate_total + ncreate
+
             cur => cur%next
-          END DO
-        END IF ! collisional ionisation
+          END DO nelp
 
+          CALL append_partlist(&
+               species_list(elec_spec)%secondary_list(ix,iy), new_e_plist)
 
-        IF (cur_medium%quantised) &
-          dN = FLOOR(dN/next_create_min)*next_create_min
+        END DO xlp1
+        END DO
 
-        ! make sure to subtract at most the remaining medium density
-        dN = MIN(dN, cur_N)
+      END IF ! collisional ionisation
 
-        IF(.NOT. next_media .OR. .NOT. elec_media) THEN
-          IF (dN .GE. next_create_min) THEN
+      IF (cur_medium%use_field_ionisation) THEN
+
+        DO iy = 1,ny
+  xlp2: DO ix = 1,nx
+
+          cur_N = media_density(ix,iy,im)
+          ncreate = 0
+          dN  = 0
+          rate_f = 0
+
+          IF (cur_N .LT. lowdens) CYCLE xlp2
+
+          ! need to set up temporal averaging
+          enorm = SQRT( 0.25_num*(ex(ix,iy) + ex(ix-1,iy  ))**2 &
+                     +  0.25_num*(ey(ix,iy) + ey(ix  ,iy-1))**2 &
+                              +   ez(ix,iy)**2)
+
+          IF (enorm > enorm_max) enorm_max = enorm
+
+          rate_f  = ppt_ionise(enorm, im)
+
+          ! zero out small field
+          IF (enorm .LT. 1.0e2_num) rate_f = 0
+
+          dN = rate_f * cur_N * dt
+
+          IF (use_probsm .AND. dN .LT. next_create_min) THEN
+            IF (random() .LT. 1.0_num - exp(-rate_f*dt)) THEN
+              dN = next_create_min
+            ELSE
+              dN = 0.0_num
+            END IF
+          END IF
+
+          IF (cur_medium%quantised) &
+            dN = FLOOR(dN/next_create_min)*next_create_min
+
+          ! make sure to subtract at most the remaining medium density
+          dN = MIN(dN, cur_N)
+
+          IF ( any_parts ) THEN
             ncreate = NINT(dN / next_create_min)
             next_weight = next_create_min
 
@@ -723,47 +831,54 @@ ixlp: DO ix = 1,nx
               next_weight = dN / nmax_create
               ncreate = nmax_create
             END IF
-          ELSE
-            ncreate = 0
-            dN = 0
           END IF
-        END IF
 
-        IF ( dN .GT. 0.0_num .AND. ncreate .GT. 0 ) THEN
-          IF (.NOT. next_media .AND. .NOT. elec_media ) THEN
-            ! create ions and electrons with same random positions
+          IF ( next_parts_only ) THEN
             CALL create_media_ions_electrons(ncreate, next_weight, &
                  next_spec, elec_spec, ix, iy)
           ELSE
             !ion species
             IF (next_media) THEN
-              media_density(ix,iy,nextm) = media_density(ix,iy,nextm)+dN
-            ELSE IF (ncreate > 0) THEN
-              CALL create_media_particles(ncreate, next_weight,&
+              media_density(ix,iy,nextm) = &
+                   media_density(ix,iy,nextm) + dN
+            ELSE IF (ncreate .GT. 0) THEN
+              parts_produced = .TRUE.
+              CALL create_media_particles(ncreate, next_weight, &
                    next_spec, ix, iy)
             END IF
+
             ! electron species
             IF (elec_media) THEN
               media_density(ix,iy,next_me) = &
                    media_density(ix,iy,next_me) + dN
-            ELSE IF (ncreate > 0) THEN
+            ELSE IF (ncreate .GT. 0) THEN
+              parts_produced = .TRUE.
               CALL create_media_particles(ncreate, next_weight,&
                    elec_spec, ix, iy)
             END IF
-          END IF
-        END IF
-        media_density(ix,iy,im) = cur_N - dN
+          END IF !next parts only
 
-        ncreate_total = ncreate_total + ncreate
+          media_density(ix,iy,im) = cur_N - dN
+
+          ncreate_total = ncreate_total + ncreate
+
+        END DO xlp2
+        END DO
+
+      END IF ! use field ionisation
+
+      ! get media density
+      DO iy = 1,ny
+xlp3: DO ix = 1,nx
 
         IF      ( media_density(ix,iy,im) < min_N ) THEN
           min_N = media_density(ix,iy,im)
         ELSE IF ( media_density(ix,iy,im) > max_N ) THEN
           max_N = media_density(ix,iy,im)
         END IF
-
-      END DO ixlp
+      END DO xlp3
       END DO
+
 
       CALL MPI_REDUCE(ncreate_total, ncreate_totalr, 1, MPI_INTEGER, &
            MPI_SUM, 0, comm, ierr)
@@ -821,10 +936,12 @@ ixlp: DO ix = 1,nx
 
 
 
-  SUBROUTINE create_media_particles(ncreate, weight, species, ix, iy)
+  SUBROUTINE create_media_particles(ncreate, weight, species, ix, iy, &
+       position)
 
     INTEGER, INTENT(IN) :: ncreate, species, ix, iy
     REAL(num), INTENT(IN) :: weight
+    REAL(num), INTENT(IN), OPTIONAL :: position(3)
 
     INTEGER :: n
     TYPE(particle), POINTER :: cur
@@ -832,9 +949,16 @@ ixlp: DO ix = 1,nx
     DO n=1,ncreate
       CALL create_particle(cur)
       cur%weight   = weight*dx*dy
-      cur%part_pos = [ xb(ix) + random()*dx,&
-                       yb(iy) + random()*dy,&
-                       0.0_num ]
+
+      IF (PRESENT(position)) THEN
+        cur%part_pos = position
+      ELSE
+        cur%part_pos = [&
+          xb(ix) + random()*dx,&
+          yb(iy) + random()*dy,&
+          0.0_num ]
+
+      END IF
       cur%part_ip  = cur%part_pos
       CALL add_particle_to_partlist(&
            species_list(species)%secondary_list(ix,iy), cur)
@@ -842,6 +966,30 @@ ixlp: DO ix = 1,nx
     END DO
 
   END SUBROUTINE create_media_particles
+
+
+
+  SUBROUTINE create_collelec_particles(ncreate, weight, &
+       position, new_e_plist)
+
+    INTEGER, INTENT(IN) :: ncreate
+    REAL(num), INTENT(IN) :: weight, position(3)
+    TYPE(particle_list), INTENT(INOUT) :: new_e_plist
+
+    INTEGER :: n
+    TYPE(particle), POINTER :: cur
+
+    DO n=1,ncreate
+
+      CALL create_particle(cur)
+      cur%weight   = weight*dx*dy
+      cur%part_pos = position
+      cur%part_ip  = cur%part_pos
+      CALL add_particle_to_partlist(new_e_plist, cur)
+
+    END DO
+
+  END SUBROUTINE create_collelec_particles
 
 
 

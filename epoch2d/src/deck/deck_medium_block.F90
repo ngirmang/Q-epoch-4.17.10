@@ -26,7 +26,7 @@ MODULE deck_medium_block
   PUBLIC :: medium_block_end, medium_block_handle_element, medium_block_check
 
   INTEGER :: current_block
-  LOGICAL :: dump_rates, dump_keldyshs
+  LOGICAL :: dump_rates, dump_keldyshs, next_create_min_set
 CONTAINS
 
   SUBROUTINE medium_deck_initialise
@@ -57,6 +57,7 @@ CONTAINS
     IF (deck_state == c_ds_first) n_media = n_media + 1
 
     dump_rates = .FALSE. ; dump_keldyshs = .FALSE.
+    next_create_min_set = .FALSE.
   END SUBROUTINE medium_block_start
 
 
@@ -105,7 +106,7 @@ CONTAINS
       RETURN
     END IF
 
-    ! Set the particle species this is related to. Must be ioniseable
+    ! Set the particle species this is related to.
     IF (str_cmp(element, 'species')) THEN
       CALL initialise_stack(stack)
       CALL tokenize(value, stack, errcode) 
@@ -130,6 +131,7 @@ CONTAINS
     IF (str_cmp(element, 'next_creation_density')) THEN
       media_list(current_block)%next_create_min = &
            as_real_print(value, element, errcode)
+      next_create_min_set = .TRUE.
       RETURN
     END IF
 
@@ -184,6 +186,8 @@ CONTAINS
       RETURN
     END IF
 
+    ! for predicted ionisation density changes below next_creation_density,
+    ! we do probablistic monte carlo ionisation, as in the vanilla code.
     IF (str_cmp(element, 'probablistic_submin')) THEN
       media_list(current_block)%use_prob = &
            as_logical_print(value, element, errcode)
@@ -201,7 +205,17 @@ CONTAINS
     INTEGER :: errcode
 
     errcode = c_err_none
+    IF ( media_list(current_block)%quantised .AND. &
+         .NOT. next_create_min_set ) THEN
+      IF (rank == 0) THEN
+        PRINT *, "*** ERROR ***"
+        PRINT *, "in medium block, you must set a next_creation_density &
+                 &to use quantisation!"
+      END IF
+      errcode = c_err_bad_value
+    END IF
 
+    !IF ( media_list(current_block
   END FUNCTION medium_block_check
 #endif
 END MODULE deck_medium_block

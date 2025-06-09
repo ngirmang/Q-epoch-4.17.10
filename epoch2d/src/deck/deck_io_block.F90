@@ -1174,6 +1174,10 @@ CONTAINS
     io_block%dumpmask(c_dump_n2) = &
         IOR(io_block%dumpmask(c_dump_n2), c_io_restartable)
 #endif
+#ifdef MEDIUM
+    io_block%dumpmask(c_dump_medium_density) = &
+        IOR(io_block%dumpmask(c_dump_medium_density), c_io_restartable)
+#endif
 
   END SUBROUTINE set_restart_dumpmasks
 
