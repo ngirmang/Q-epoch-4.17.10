@@ -279,7 +279,8 @@ MODULE constants
   INTEGER, PARAMETER :: c_stagger_jz = c_stagger_ez
 
   ! Length of a standard string
-  INTEGER, PARAMETER :: string_length = 256
+  INTEGER, PARAMETER :: string_length = 1024
+!  INTEGER, PARAMETER :: string_length = 256
 
 #ifdef PARTICLE_ID4
   INTEGER, PARAMETER :: idkind = i4
@@ -596,7 +597,7 @@ MODULE constants
   INTEGER, PARAMETER :: c_dump_eps3              = 79
   INTEGER, PARAMETER :: c_dump_n2                = 80
 #ifdef MEDIUM
-  INTEGER, PARAMETER :: c_dump_medium_density     = 81
+  INTEGER, PARAMETER :: c_dump_medium_density    = 81
   INTEGER, PARAMETER :: num_vars_to_dump         = 81
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 80

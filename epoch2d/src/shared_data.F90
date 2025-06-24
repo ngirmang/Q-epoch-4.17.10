@@ -276,6 +276,7 @@ MODULE shared_data
     REAL(num) :: merge_max_energy_sig = 2.0_num
     REAL(num) :: merge_max_pcomp_sig =  2.0_num
     INTEGER :: merge_start = 0
+    REAL(num) :: merge_energy_cut = HUGE(1.0_num)
 #endif
 
     ! Specify if species is background species or not
@@ -565,12 +566,19 @@ MODULE shared_data
     LOGICAL :: dump_ionisation_rates = .FALSE.
     LOGICAL :: use_prob = .TRUE.
 
-    REAL(num) :: eps_n = 1.0_num ! not implemented yet
-    REAL(num) :: eps_n2= 0.0
+    LOGICAL :: compound = .FALSE.
+
+    LOGICAL :: bound = .FALSE.
+    INTEGER :: parent_index = -1
+
+    LOGICAL :: contribute_n1 = .FALSE.
+    REAL(num) :: mol_al1 = 0.0_num
+    REAL(num) :: mol_al2 = 0.0_num
   END type medium
 
   TYPE(medium), DIMENSION(:), POINTER :: media_list
   REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: media_density
+
   INTEGER :: ielectron_medium = -1
 #endif
 
@@ -695,7 +703,8 @@ MODULE shared_data
   INTEGER, DIMENSION(:), ALLOCATABLE :: last_coll_ionisation_counts
 #endif
 #ifdef MERGE_PARTICLES
-  INTEGER :: merge_nsteps = -1
+  INTEGER :: merge_nsteps = -1, merge_max_nstep = HUGE(1)
+  INTEGER :: merge_scheme = 1
 #endif
 
   INTEGER :: maxwell_solver = c_maxwell_solver_yee

@@ -27,12 +27,20 @@ MODULE deck_medium_block
 
   INTEGER :: current_block
   LOGICAL :: dump_rates, dump_keldyshs, next_create_min_set
+
+  INTEGER, ALLOCATABLE, DIMENSION(:,:) :: constituents
+
 CONTAINS
 
   SUBROUTINE medium_deck_initialise
     
     current_block = 0
-    IF (deck_state == c_ds_first) n_media = 0
+    IF (deck_state == c_ds_first) THEN
+      n_media = 0
+    ELSE
+      ALLOCATE(constituents(n_media,n_media))
+      constituents = -1
+    END IF
 
   END SUBROUTINE medium_deck_initialise
 
@@ -40,12 +48,43 @@ CONTAINS
 
   SUBROUTINE medium_deck_finalise
 
-    IF (deck_state == c_ds_first .AND. n_media > 0) THEN
+    INTEGER :: i, j, iu, io, ispecies, n
+
+    IF (n_media == 0) RETURN
+
+    IF (deck_state == c_ds_first) THEN
       ! not going to make a routine for what takes a few lines
       ALLOCATE(media_list(n_media))
       eps_stored = .TRUE.
       use_eps_n1n2 = .TRUE.
+      RETURN
     END IF
+
+    ! associate compound media
+    DO j = 1,n_media
+      IF (.NOT. media_list(j)%compound) CYCLE
+
+      IF (ALL(constituents(:,i) == -1)) THEN
+        IF (rank == 0) THEN
+          DO iu = 1, nio_units ! Print to stdout and to file
+            io = io_units(iu)
+            WRITE(io,*)
+            WRITE(io,*) '*** ERROR ***'
+            WRITE(io,*) 'compound media with no consituents'
+          END DO
+        END IF
+        CALL abort_code(c_err_bad_value)
+      END IF
+
+      ! count partners
+      DO i=1,n_media
+        IF(constituents(i,j) == -1) EXIT
+        n = constituents(i,j)
+        n = species_list(n)%medium_index
+        media_list(n)%parent_index = j
+        media_list(n)%bound = .TRUE.
+      END DO
+    END DO
 
   END SUBROUTINE medium_deck_finalise
 
@@ -92,9 +131,16 @@ CONTAINS
     INTEGER :: errcode
     TYPE(primitive_stack) :: stack
     REAL(num) :: v
-    INTEGER :: i, species, err
+    INTEGER :: i, species, err, n_constituents, n, j
+    REAL(num), DIMENSION(:), POINTER :: r_media_indices
 
     errcode = c_err_none
+    IF (str_cmp(element, 'molecular_n1') &
+        .OR. str_cmp(element, 'molecular_n2')) THEN
+      eps_stored = .TRUE.
+      use_eps_n1n2 = .TRUE.
+    END IF
+
     IF (deck_state == c_ds_first) RETURN
     IF (element == blank .OR. value == blank) RETURN
     ! I think by now, most of the basic species information is here
@@ -109,7 +155,7 @@ CONTAINS
     ! Set the particle species this is related to.
     IF (str_cmp(element, 'species')) THEN
       CALL initialise_stack(stack)
-      CALL tokenize(value, stack, errcode) 
+      CALL tokenize(value, stack, errcode)
       v = evaluate(stack, err)
       media_list(current_block)%species = NINT(v)
       CALL deallocate_stack(stack)
@@ -194,6 +240,46 @@ CONTAINS
       RETURN
     END IF
 
+    ! this medium is a composite (molecule)
+    IF (str_cmp(element, 'compound_medium')) THEN
+      media_list(current_block)%compound = &
+           as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
+    ! set the compound constituents
+    IF (str_cmp(element, 'constituents')) THEN
+      ALLOCATE(r_media_indices(n_media))
+      CALL initialise_stack(stack)
+      CALL tokenize(value, stack, errcode)
+      CALL evaluate_and_return_all(stack, &
+           n_constituents, r_media_indices, errcode)
+      CALL deallocate_stack(stack)
+
+      DO i = 1,n_constituents
+        n = NINT(r_media_indices(i))
+        n = constituents(n,current_block)
+      END DO
+      DEALLOCATE(r_media_indices)
+      RETURN
+    END IF
+
+    ! this medium (meant for compound media really) has a "molecular dielectric"
+    ! contribution
+    IF (str_cmp(element, 'molecular_alpha')) THEN
+      media_list(current_block)%contribute_n1 = .TRUE.
+      media_list(current_block)%mol_al1 = &
+           as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'molecular_alpha2')) THEN
+      media_list(current_block)%contribute_n1 = .TRUE.
+      media_list(current_block)%mol_al2 = &
+           as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
     errcode = c_err_unknown_element
 
   END FUNCTION medium_block_handle_element
@@ -205,6 +291,8 @@ CONTAINS
     INTEGER :: errcode
 
     errcode = c_err_none
+    IF ( current_block == 0) RETURN
+
     IF ( media_list(current_block)%quantised .AND. &
          .NOT. next_create_min_set ) THEN
       IF (rank == 0) THEN

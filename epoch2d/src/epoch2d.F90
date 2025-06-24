@@ -73,6 +73,9 @@ PROGRAM pic
   CHARACTER(LEN=*), PARAMETER :: data_dir_file = 'USE_DATA_DIRECTORY'
   CHARACTER(LEN=64) :: timestring
   REAL(num) :: runtime, dt_store
+#if 1
+  INTEGER :: n1, n2, n3
+#endif
 
   step = 0
   time = 0.0_num
@@ -189,6 +192,12 @@ PROGRAM pic
     PRINT*
   END IF
 
+#if 1
+  IF (rank == 0) THEN
+    CALL system_clock(n1, n2, n3)
+    PRINT '("rate = ", I5.5)', n2
+  END IF
+#endif
   walltime_started = MPI_WTIME()
   IF (.NOT.ic_from_restart) CALL output_routines(step) ! diagnostics.f90
   IF (use_field_ionisation) CALL initialise_ionisation
@@ -250,7 +259,9 @@ PROGRAM pic
         IF (use_split) CALL split_particles
 
 #ifdef MERGE_PARTICLES
-        IF (merge_nsteps > 0 .AND. MOD(step, merge_nsteps) == 0) &
+        IF (merge_nsteps > 0 .AND. &
+            (MOD(step, merge_nsteps) == 0 &
+            .AND. step <= merge_max_nstep)) &
              CALL merge_particles
 #endif
         CALL reattach_particles_to_mainlist

@@ -657,28 +657,6 @@ CONTAINS
       RETURN
     END IF
 #endif
-#ifdef MERGE_PARTICLES
-    IF (str_cmp(element, 'merge_particles')) THEN
-      species_merge = as_logical_print(value, element, errcode)
-      RETURN
-    END IF
-    IF (str_cmp(element, 'merge_max_energy_sigma')) THEN
-      species_en_sig = as_real_print(value, element, errcode)
-      RETURN
-    END IF
-    IF (str_cmp(element, 'merge_max_pcomp_sigma')) THEN
-      species_pc_sig = as_real_print(value, element, errcode)
-      RETURN
-    END IF
-    IF (str_cmp(element, 'merge_target_particles_per_cell')) THEN
-      species_max_nppc = as_integer_print(value, element, errcode)
-      RETURN
-    END IF
-    IF (str_cmp(element, 'merge_start_threshold')) THEN
-      species_merge_start = as_integer_print(value, element, errcode)
-      RETURN
-    END IF
-#endif
 
     IF (str_cmp(element, 'dump')) THEN
       dump = as_logical_print(value, element, errcode)
@@ -751,6 +729,37 @@ CONTAINS
     IF (str_cmp(element, 'diminish_factor')) THEN
       species_list(species_id)%diminish_factor = as_real_print(&
            value, element, errcode)
+      RETURN
+    END IF
+#endif
+#ifdef MERGE_PARTICLES
+    IF (str_cmp(element, 'merge_particles')) THEN
+      species_list(species_id)%merge = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_energy_sigma')) THEN
+      species_list(species_id)%merge_max_energy_sig = &
+           as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_pcomp_sigma')) THEN
+      species_list(species_id)%merge_max_pcomp_sig = &
+           as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_target_particles_per_cell')) THEN
+      species_list(species_id)%merge_max_particles &
+           = as_integer_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_start_threshold')) THEN
+      species_list(species_id)%merge_start = &
+           as_integer_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_energy_cutoff')) THEN
+      species_list(species_id)%merge_energy_cut = &
+           as_real_print(value, element, errcode)
       RETURN
     END IF
 #endif

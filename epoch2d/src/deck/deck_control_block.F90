@@ -464,6 +464,13 @@ CONTAINS
 #ifdef MERGE_PARTICLES
     ELSE IF (str_cmp(element, 'particle_merge_frequency')) THEN
       merge_nsteps = as_integer_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'merge_max_nstep')) THEN
+      merge_max_nstep = as_integer_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'particle_merge_scheme')) THEN
+      merge_scheme = as_integer_print(value, element, errcode)
+
 #endif
     ELSE
       errcode = c_err_unknown_element

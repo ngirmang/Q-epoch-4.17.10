@@ -20,7 +20,7 @@ MODULE fields
   USE utilities
 #endif
 #ifdef MEDIUM
-  USE media, only : update_medium_eps
+  USE media, only : update_medium_n1n2
 #endif
 
   IMPLICIT NONE
@@ -371,6 +371,10 @@ CONTAINS
     REAL(num) :: esq, vn
     ! add chi3, use epsy as a temporary
 
+#ifdef MEDIUM
+    CALL update_medium_n1n2
+#endif
+
     IF (saturateable_n2) THEN
 
       DO iy = 0,ny
@@ -407,9 +411,6 @@ CONTAINS
       END DO
     END IF
     
-#ifdef MEDIUM
-    CALL update_medium_eps
-#endif
     ! average chi
     IF (use_eps_spatial_average) CALL spatial_average_eps
 

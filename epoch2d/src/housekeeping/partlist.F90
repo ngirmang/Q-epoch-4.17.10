@@ -572,6 +572,8 @@ CONTAINS
     a_particle%part_ip(2) = array(cpos+1)
     a_particle%part_ip(3) = array(cpos+2)
     cpos = cpos+3
+    ! for now, just nullify the partners_head. best not to do partners with rebalance, etc.
+    NULLIFY(a_particle%partners_head)
 #endif
     IF (any_persistent_subset) THEN
       CALL id_registry%add_with_map(a_particle, TRANSFER(array(cpos), temp_i8))
@@ -621,6 +623,7 @@ CONTAINS
 #endif
 #ifdef BOUND_HARMONIC
     new_particle%part_ip = 0.0_num
+    NULLIFY(new_particle%partners_head)
 #endif
   
   END SUBROUTINE init_particle

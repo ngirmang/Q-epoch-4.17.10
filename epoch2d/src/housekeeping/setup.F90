@@ -928,6 +928,9 @@ CONTAINS
     INTEGER, POINTER :: species_subtypes(:)
     INTEGER, POINTER :: species_subtypes_i4(:), species_subtypes_i8(:)
     REAL(num) :: offset_x_min, full_x_min, offset_x_max
+#ifdef MEDIUM
+    INTEGER :: n
+#endif
 
     got_full = .FALSE.
     npart_global = 0
@@ -1386,6 +1389,16 @@ CONTAINS
         ELSE IF (str_cmp(block_id, 'cpml_psi_bzy')) THEN
           CALL sdf_read_plain_variable(sdf_handle, cpml_psi_bzy, &
               subtype_field, subarray_field)
+
+#ifdef MEDIUM
+        ELSE IF (block_id(1:15) == 'medium_density/') THEN
+          CALL find_species_by_blockid(block_id, ispecies)
+          IF (ispecies == 0) CYCLE
+          n=species_list(ispecies)%medium_index
+          IF (n <= 0) CYCLE
+          CALL sdf_read_plain_variable(sdf_handle, media_density(:,:,n), &
+               subtype_field, subarray_field)
+#endif
 
         END IF
 

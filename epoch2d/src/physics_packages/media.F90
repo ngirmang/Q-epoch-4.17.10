@@ -28,7 +28,7 @@ MODULE media
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ionise_media, initialise_media, media_particle_production,&
-       update_medium_eps, deallocate_media
+       update_medium_n1n2, deallocate_media
 
   REAL(num), PARAMETER :: c_sq = c**2, e_mass = m0, e_restE = m0*c_sq
 
@@ -560,10 +560,11 @@ CONTAINS
 
   SUBROUTINE ionise_media
 
-    INTEGER :: im, ne, i, ix, iy, cur_spec, elec_spec, next_spec, nextm, &
+    INTEGER :: im, ne, n, i, ix, iy, cur_spec, elec_spec, next_spec, nextm, &
          ncreate, nmax_create, ntmp, nl, nn, next_me, &
-         ncreate_total
-    INTEGER :: ncreate_totalr, ierr
+         ncreate_coll_total, ncreate_field_total
+    INTEGER :: ncreate_coll_totalr, ncreate_field_totalr, ierr, &
+         itimest, itimeen
 
     REAL(num) enorm, rate, dN, cur_N, U0, dN_field, &
          next_create_min, next_create_max, next_weight, &
@@ -598,10 +599,13 @@ CONTAINS
 
     DO im=1,n_media
 
+      ncreate_field_total = 0 ; ncreate_coll_total = 0
+
+      CALL system_clock(itimest)
+
       cur_medium => media_list(im)
       cur_spec = cur_medium%species
 
-      ncreate_total = 0
       enorm_max = 0.0_num
       rate_max  = 0.0_num
 
@@ -632,6 +636,7 @@ CONTAINS
       nl = species_list(cur_spec)%l
 
       IF (cur_medium%use_collisional_ionisation) THEN
+        ncreate_coll_total = 0
         ntmp = next_spec
         DO WHILE(species_list(ntmp)%ionise)
           ntmp = species_list(ntmp)%ionise_to_species
@@ -660,6 +665,7 @@ CONTAINS
 
 nelp:     DO ne=1,nelec
             dN = 0
+            ncreate = 0
             rate_c = 0
             parts_produced = .FALSE.
 
@@ -723,6 +729,10 @@ nelp:     DO ne=1,nelec
               cur => cur%next
               CYCLE nelp
             END IF
+
+            ! clamp the ionisation to under what is available in total energy
+            dN = MIN(dN, elec_n*e_ke_st/U0)
+
             IF ( any_parts ) THEN
               ncreate = NINT(dN / next_create_min)
               next_weight = next_create_min
@@ -754,23 +764,34 @@ nelp:     DO ne=1,nelec
                    e_pos, new_e_plist)
             END IF
 
-            IF (parts_produced) THEN
-              e_ke_en = e_ke_st - U0*ncreate
-            ELSE
-              e_ke_en = e_ke_st - U0*dN*dx*dy
-            END IF
+            e_ke_en = e_ke_st - U0*dN / elec_N
+            ! IF (parts_produced) THEN
+            !   e_ke_en = e_ke_st - U0*ncreate
+            ! ELSE
+            !   e_ke_en = e_ke_st - U0*dN*dx*dy
+            ! END IF
 
-            PRINT '("PING, parts_produced=",L1,", ncreate=",I5,&
-                 &", e_ke_en=", ES11.2,", e_pos=",3ES10.1)', &
-                 parts_produced, ncreate, e_ke_en, e_pos
+            !PRINT '("PING, dN=", ES11.2, ",ncreate=",I4,&
+            !     &", e_ke_st=", ES11.2,", e_ke_en=", ES11.2,&
+            !     &", e_pos=",3ES10.1)', &
+            !     dN, ncreate, e_ke_st, e_ke_en, e_pos
 
             e_p = e_p*sqrt( ((e_ke_en/e_restE + 1)**2 - 1) / e_p2_st) * m0*c
 
             cur%part_p = e_p
 
             media_density(ix,iy,im) = cur_N - dN
+            cur_N = media_density(ix,iy,im)
 
-            ncreate_total = ncreate_total + ncreate
+            IF (cur_medium%bound) THEN
+              n = cur_medium%parent_index
+
+              media_density(ix, iy, n) = media_density(ix, iy, n) - dN
+              IF (media_density(ix, iy, n) .lt. 0) &
+                   media_density(ix,iy,n) = 0.0_num
+            END IF
+
+            ncreate_coll_total = ncreate_coll_total + ncreate
 
             cur => cur%next
           END DO nelp
@@ -784,6 +805,7 @@ nelp:     DO ne=1,nelec
       END IF ! collisional ionisation
 
       IF (cur_medium%use_field_ionisation) THEN
+        ncreate_field_total = 0
 
         DO iy = 1,ny
   xlp2: DO ix = 1,nx
@@ -860,44 +882,52 @@ nelp:     DO ne=1,nelec
 
           media_density(ix,iy,im) = cur_N - dN
 
-          ncreate_total = ncreate_total + ncreate
+          ncreate_field_total = ncreate_field_total + ncreate
 
         END DO xlp2
         END DO
 
       END IF ! use field ionisation
 
-      ! get media density
-      DO iy = 1,ny
-xlp3: DO ix = 1,nx
 
-        IF      ( media_density(ix,iy,im) < min_N ) THEN
-          min_N = media_density(ix,iy,im)
-        ELSE IF ( media_density(ix,iy,im) > max_N ) THEN
-          max_N = media_density(ix,iy,im)
+      IF (stdout_frequency .GT. 0 .AND. &
+          MOD(step, stdout_frequency) == 0) THEN
+        ! get media density
+        DO iy = 1,ny
+  xlp3: DO ix = 1,nx
+
+          IF      ( media_density(ix,iy,im) < min_N ) THEN
+            min_N = media_density(ix,iy,im)
+          ELSE IF ( media_density(ix,iy,im) > max_N ) THEN
+            max_N = media_density(ix,iy,im)
+          END IF
+        END DO xlp3
+        END DO
+
+
+        CALL MPI_REDUCE(ncreate_coll_total, ncreate_coll_totalr, &
+             1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
+        CALL MPI_REDUCE(ncreate_field_total, ncreate_field_totalr, &
+             1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
+
+        CALL MPI_REDUCE(min_N, min_Nr, 1, mpireal, MPI_MIN, 0, comm, ierr)
+        CALL MPI_REDUCE(max_N, max_Nr, 1, mpireal, MPI_MAX, 0, comm, ierr)
+        CALL MPI_REDUCE(enorm_max, enorm_maxr, 1, mpireal, MPI_MAX, 0, &
+             comm, ierr)
+        !CALL MPI_REDUCE(rate_max, rate_maxr, 1, mpireal, MPI_MAX, 0, &
+        !     comm, ierr)
+
+        IF (rank == 0 ) THEN
+
+          PRINT '("media_ionise: step=",I7.7,", field ionis.=",I5.5,&
+                 &", coll. ionis.=",I5.5,", peak E=",&
+                 & ES9.3,", max_N=",ES9.3,", min_N=",ES13.7)',&
+                 step, ncreate_coll_totalr, ncreate_field_totalr, &
+                 enorm_maxr, max_Nr, min_Nr
+
+          CALL system_clock(itimeen)
+          PRINT '("               time taken: ",I7.7)', itimeen-itimest
         END IF
-      END DO xlp3
-      END DO
-
-
-      CALL MPI_REDUCE(ncreate_total, ncreate_totalr, 1, MPI_INTEGER, &
-           MPI_SUM, 0, comm, ierr)
-      CALL MPI_REDUCE(min_N, min_Nr, 1, mpireal, MPI_MIN, 0, comm, ierr)
-      CALL MPI_REDUCE(max_N, max_Nr, 1, mpireal, MPI_MAX, 0, comm, ierr)
-      CALL MPI_REDUCE(enorm_max, enorm_maxr, 1, mpireal, MPI_MAX, 0, &
-           comm, ierr)
-      CALL MPI_REDUCE(rate_max, rate_maxr, 1, mpireal, MPI_MAX, 0, &
-           comm, ierr)
-
-      IF (rank == 0 .AND. stdout_frequency .GT. 0 .AND. &
-        MOD(step, stdout_frequency) == 0) THEN
-
-        PRINT '("media_ionise: step=",I7.7,", ncreate=",I5.5,", peak E=",&
-             & ES9.3,", max_N=",ES9.3,", min_N=",ES13.7)',&
-             step, ncreate_totalr, enorm_maxr, max_Nr, min_Nr
-        PRINT '("                            rate_max=",ES9.3)', &
-             rate_maxr
-
       END IF
 
     END DO ! each medium
@@ -907,19 +937,19 @@ xlp3: DO ix = 1,nx
   ! based on user input, break media into macroparticles
   SUBROUTINE media_particle_production
     
-    INTEGER :: n, ix, iy, ncreate, cur_spec
+    INTEGER :: im, ix, iy, ncreate, cur_spec
     TYPE(medium), POINTER :: cur_medium
     REAL(num) :: create_min, cur_N
 
-    DO n=1,n_media
-      cur_medium => media_list(n)
+    DO im=1,n_media
+      cur_medium => media_list(im)
       cur_spec = cur_medium%species
       create_min = cur_medium%particle_create_density
 
       DO iy = 1, ny
       DO ix = 1, nx
 
-        cur_N = media_density(ix, iy, n)
+        cur_N = media_density(ix, iy, im)
         IF (cur_N .GT. create_min) THEN
           ncreate = FLOOR(cur_N/create_min)
           CALL create_media_particles(ncreate, create_min, cur_spec,&
@@ -1024,10 +1054,33 @@ xlp3: DO ix = 1,nx
 
 
 
-  SUBROUTINE update_medium_eps
+  SUBROUTINE update_medium_n1n2
 
-    INTEGER ix,iy,n
-    REAL(num) N_c
+    INTEGER :: ix,iy,n, im
+    REAL(num) :: N_c, v, alpha, alpha2, cur_N, max_n1
+
+    DO im = 1,n_media
+      IF (.NOT. media_list(im)%contribute_n1) CYCLE
+
+      !max_n1 = 0.0_num
+
+      alpha = media_list(im)%mol_al1
+      alpha2= media_list(im)%mol_al2
+
+      DO iy = 1,ny
+      DO ix = 1,nx
+
+        cur_N = media_density(ix,iy,im)
+        eps_n1(ix,iy) = 1.0_num + cur_N*alpha
+        !IF (eps_n1(ix,iy) .gt. max_n1) max_n1 = eps_n1(ix,iy)
+        eps_n2(ix,iy) = cur_N*alpha2
+      END DO
+      END DO
+
+
+    END DO
+
+
 
     IF (ielectron_medium == -1) RETURN
 
@@ -1039,7 +1092,7 @@ xlp3: DO ix = 1,nx
     epsy = epsy - media_density(:,:,n) / N_c
     epsz = epsz - media_density(:,:,n) / N_c
     
-  END SUBROUTINE update_medium_eps
+  END SUBROUTINE update_medium_n1n2
 
 #endif
 END MODULE media

@@ -747,8 +747,8 @@ CONTAINS
     REAL(num), DIMENSION(3) :: omega, gamma, dlx, part_u, maxd
     REAL(num) part_m
 
-    IF (check_bound_interval == 0 &
-        .OR. MOD(step, check_bound_interval) > 0) RETURN
+    IF (check_bound_interval == 0 ) RETURN
+    IF (MOD(step, check_bound_interval) > 0) RETURN
     IF (rank == 0) PRINT "(A,I6.6)", "checking bound at step = ", step
 
     maxd = (/dx, dy, (dx+dy)/2 /) / bound_safe_factor
