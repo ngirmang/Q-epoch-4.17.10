@@ -56,8 +56,6 @@ MODULE deck_species_block
   REAL(num), DIMENSION(:,:), POINTER :: harmonic_om
   REAL(num), DIMENSION(3) :: species_harmonic_gm
   REAL(num), DIMENSION(:,:), POINTER :: harmonic_gm
-  REAL(num) :: species_bfield_sample_factor = 1.0_num
-  REAL(num), DIMENSION(:), POINTER :: bfield_sample_factor
   INTEGER, DIMENSION(c_ndims) :: species_dir_nparts
   INTEGER, DIMENSION(:,:), POINTER :: dir_nparts
 #ifdef NONLIN
@@ -113,8 +111,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
       ALLOCATE(harmonic_om(3,4))
       ALLOCATE(harmonic_gm(3,4))
-      ALLOCATE(bfield_sample_factor(4))
-      bfield_sample_factor = 1.0_num
       ALLOCATE(dir_nparts(c_ndims,4))
       dir_nparts = 0
 #ifdef NONLIN
@@ -181,7 +177,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
         species_list(i)%harmonic_omega = harmonic_om(:,i)
         species_list(i)%harmonic_gamma = harmonic_gm(:,i)
-        species_list(i)%bfield_sample_factor = bfield_sample_factor(i)
         species_list(i)%dir_nparts = dir_nparts(:,i)
 #ifdef NONLIN
         species_list(i)%nl_alpha3 = nl_alpha3(i)
@@ -422,7 +417,6 @@ CONTAINS
     offset = 0
 #ifdef BOUND_HARMONIC
     species_dir_nparts = 0
-    species_bfield_sample_factor = 1.0_num
     species_harmonic_om = 0.0_num
     species_harmonic_gm = 0.0_num
 #ifdef NONLIN
@@ -475,12 +469,10 @@ CONTAINS
 #ifdef BOUND_HARMONIC
       harmonic_om(:,n_species) = species_harmonic_om
       harmonic_gm(:,n_species) = species_harmonic_gm
-      bfield_sample_factor(n_species) = species_bfield_sample_factor
       dir_nparts(:,n_species) = species_dir_nparts
 
       species_harmonic_om = 0.0_num
       species_harmonic_gm = 0.0_num
-      species_bfield_sample_factor = 1.0_num
       species_dir_nparts = 0
 #ifdef NONLIN
       nl_alpha3(n_species) = species_nl_alpha3
@@ -625,11 +617,6 @@ CONTAINS
        RETURN
     END IF
 
-    IF (str_cmp(element, "bfield_sample_factor")) THEN
-       species_bfield_sample_factor = as_real_print(value, element, errcode)
-       RETURN
-    END IF
-
     IF      (str_cmp(element, 'xdir_npart_per_cell')) THEN
        species_dir_nparts(1) = as_integer_print(value, element, errcode)
        RETURN
@@ -729,6 +716,12 @@ CONTAINS
     IF (str_cmp(element, 'diminish_factor')) THEN
       species_list(species_id)%diminish_factor = as_real_print(&
            value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'bfield_sample_factor')) THEN
+      species_list(species_id)%bfield_sample_factor = as_real_print(&
+        value, element, errcode)
       RETURN
     END IF
 #endif
@@ -1561,7 +1554,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     CALL grow_array(harmonic_om, 3, n_species)
     CALL grow_array(harmonic_gm, 3, n_species)
-    CALL grow_array(bfield_sample_factor, n_species)
     CALL grow_array(dir_nparts, c_ndims, n_species)
 #ifdef NONLIN
     CALL grow_array(nl_alpha3,n_species) 
@@ -1595,7 +1587,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     harmonic_om(:,n_species) = 0.0_num
     harmonic_gm(:,n_species) = 0.0_num
-    bfield_sample_factor(n_species) = 1.0_num
     dir_nparts(:, n_species) = 0
 #ifdef NONLIN
     nl_alpha3(n_species) = 0
@@ -1680,8 +1671,6 @@ CONTAINS
     harmonic_om(:,n_species) = species_harmonic_om
     CALL grow_array(harmonic_gm,3,n_species)
     harmonic_gm(:,n_species) = species_harmonic_gm
-    CALL grow_array(bfield_sample_factor,n_species)
-    bfield_sample_factor(n_species) = species_bfield_sample_factor
     CALL grow_array(dir_nparts, c_ndims, n_species)
     dir_nparts(:, n_species) = species_dir_nparts
 #ifdef NONLIN
