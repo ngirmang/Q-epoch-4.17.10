@@ -560,6 +560,7 @@ MODULE shared_data
     LOGICAL :: use_field_ionisation = .FALSE.
     LOGICAL :: use_collisional_ionisation = .FALSE.
     LOGICAL :: quantised = .FALSE.
+    LOGICAL :: per_coll = .FALSE.
 
     CHARACTER(string_length) :: ionisation_file
     CHARACTER(string_length) :: gamma_file
@@ -580,6 +581,9 @@ MODULE shared_data
   REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: media_density
 
   INTEGER :: ielectron_medium = -1
+  INTEGER :: media_prod_freq = 1
+  CHARACTER(LEN=string_length) :: full_ionisation_file
+  LOGICAL :: dump_ionisation_file = .FALSE., load_ionisation_file = .FALSE.
 #endif
 
   !----------------------------------------------------------------------------

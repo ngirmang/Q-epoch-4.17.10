@@ -20,7 +20,7 @@ MODULE fields
   USE utilities
 #endif
 #ifdef MEDIUM
-  USE media, only : update_medium_n1n2
+  USE media, only : update_medium_n1n2, update_electron_medium_eps
 #endif
 
   IMPLICIT NONE
@@ -410,7 +410,12 @@ CONTAINS
       END DO
       END DO
     END IF
-    
+
+
+#ifdef MEDIUM
+    CALL update_electron_medium_eps
+#endif
+
     ! average chi
     IF (use_eps_spatial_average) CALL spatial_average_eps
 

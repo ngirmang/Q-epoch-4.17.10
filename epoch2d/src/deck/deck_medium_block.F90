@@ -86,6 +86,8 @@ CONTAINS
       END DO
     END DO
 
+    DEALLOCATE(constituents)
+
   END SUBROUTINE medium_deck_finalise
 
 
@@ -119,6 +121,8 @@ CONTAINS
         IF ( iq == -1 ) THEN
           media_list(current_block)%is_electron_species = .TRUE.
           ielectron_medium = current_block
+          IF (rank == 0) PRINT '("electron medium is medium ", I4)', &
+              current_block
         END IF
 
   END SUBROUTINE medium_block_end
@@ -258,7 +262,7 @@ CONTAINS
 
       DO i = 1,n_constituents
         n = NINT(r_media_indices(i))
-        n = constituents(n,current_block)
+        constituents(i,current_block) = n
       END DO
       DEALLOCATE(r_media_indices)
       RETURN
@@ -277,6 +281,15 @@ CONTAINS
       media_list(current_block)%contribute_n1 = .TRUE.
       media_list(current_block)%mol_al2 = &
            as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
+    ! here, we do restrict the numbers of ionisation counts on a per collision
+    ! basis instead of a per time step basis. This generately creates many many
+    ! more particles.
+    IF (str_cmp(element, 'per_collision_treatment')) THEN
+      media_list(current_block)%per_coll = &
+           as_logical_print(value, element, errcode)
       RETURN
     END IF
 

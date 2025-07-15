@@ -253,7 +253,9 @@ PROGRAM pic
         
 #ifdef MEDIUM
         CALL ionise_media
-        CALL media_particle_production
+
+        IF ( step > 0 .AND. MOD(step, media_prod_freq) == 0 ) &
+            CALL media_particle_production
 #endif
         ! Early beta version of particle splitting operator
         IF (use_split) CALL split_particles

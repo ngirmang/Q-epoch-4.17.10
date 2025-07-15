@@ -28,20 +28,29 @@ MODULE media
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ionise_media, initialise_media, media_particle_production,&
-       update_medium_n1n2, deallocate_media
+       update_medium_n1n2, update_electron_medium_eps, deallocate_media
 
   REAL(num), PARAMETER :: c_sq = c**2, e_mass = m0, e_restE = m0*c_sq
 
 
   REAL(num), PARAMETER :: lowdens = 1.0_num, small_omega = 1.0e-5_num
   ! relevant parameters for PPT
+  ! INTEGER ii              ! 0.2  1.0    20   200
+  ! INTEGER, PARAMETER :: ngm=1  + 400 + 380 + 360
+  ! REAL(num), PARAMETER :: gms(ngm) = [&
+  !        0.2_num, &
+  !      ( 0.2_num + 0.002_num*ii, ii=1,400), &
+  !      ( 1.0_num + 0.050_num*ii, ii=1,380), &
+  !      (20.0_num + 0.500_num*ii, ii=1,360) ]
+
+  ! relevant parameters for PPT
   INTEGER ii              ! 0.2  1.0    20   200
-  INTEGER, PARAMETER :: ngm=1  + 400 + 380 + 360
+  INTEGER, PARAMETER :: ngm=1  + 400 + 380! + 360
   REAL(num), PARAMETER :: gms(ngm) = [&
          0.2_num, &
        ( 0.2_num + 0.002_num*ii, ii=1,400), &
-       ( 1.0_num + 0.050_num*ii, ii=1,380), &
-       (20.0_num + 0.500_num*ii, ii=1,360) ]
+       ( 1.0_num + 0.050_num*ii, ii=1,380)] !, &
+     ! (20.0_num + 0.500_num*ii, ii=1,360) ]
 
   REAL(num), DIMENSION(:,:), ALLOCATABLE :: ppt_rates
 
@@ -137,6 +146,9 @@ CONTAINS
          nw = 9999 ! 10K ought to be enough for anyone
     REAL(num) :: w0_f(0:nw), ws(0:nw), dw, wst
     INTEGER :: i,j,n
+    LOGICAL :: hack_quick = .TRUE.
+
+    IF (hack_quick) rates = 0.0_num
 
     IF (ma .GT. 0 ) THEN
       IF (rank == 0) PRINT '("ppt for |m| > 0 not implemented yet!")'
@@ -238,6 +250,10 @@ CONTAINS
       rates(i) = rate_pref(i)*A0s(i)*exp(-2.0_num/3.0_num*Fi/Es(i)*gs(i))
       IF (rank == 0) PRINT '("gm=", ES10.4, ", A0=", ES10.4, ", rate=",ES10.4)',&
            gms(i), A0s(i), rates(i)
+      IF (hack_quick .AND. rates(i) .LT. 1e-16) THEN
+        IF (rank == 0) PRINT '("quick exit for rates below threshold")'
+        EXIT
+      END IF
     END DO
 
     !rates = rate_pref*A0s*exp(-2.0_num/3.0_num*Fi/Es*gs)
@@ -311,35 +327,64 @@ CONTAINS
 
 
 
-  SUBROUTINE dump_rates(im)
+  SUBROUTINE dump_ppt_rates
 
-    INTEGER, INTENT(IN) :: im
-    INTEGER ih
-
-    ih = im + 100
+    INTEGER, PARAMETER :: ih = 123
 
     IF (rank .NE. 0) RETURN
 
-    PRINT '("dumping ionisation rates")'
+    PRINT '("dumping ppt ionisation rates to", A)', &
+         TRIM(full_ionisation_file)
 
-    OPEN(ih, file=media_list(im)%gamma_file, access='stream')
-
+    OPEN(ih, file=full_ionisation_file, access='stream')
     WRITE(ih) ngm
+    WRITE(ih) n_media
     WRITE(ih) gms
 
-    CLOSE(ih)
-
-    ih = im + 200
-
-    OPEN(ih, file=media_list(im)%ionisation_file, access='stream')
-
     WRITE(ih) omega
-    WRITE(ih) ngm
     WRITE(ih) ppt_rates
 
     CLOSE(ih)
 
-  END SUBROUTINE dump_rates
+  END SUBROUTINE dump_ppt_rates
+
+  SUBROUTINE load_ppt_rates
+    INTEGER, PARAMETER :: ih = 123
+    INTEGER :: n
+    REAL(num) :: dummy(ngm)
+    REAL(num) :: in_omega, diff
+
+
+    IF (rank == 0) &
+         PRINT '("loading ppt ionisation rates from", A)', &
+         TRIM(full_ionisation_file)
+
+    OPEN(ih, file=full_ionisation_file, access='stream')
+
+    READ(ih) n
+    IF (n .NE. ngm) GO TO 020
+    READ(ih) n
+    IF (n .NE. n_media) GO TO 020
+
+    READ(ih) dummy
+
+    READ(ih) in_omega
+
+    diff = 2.0_num * ABS(omega - in_omega) / ABS(omega + in_omega)
+    IF ( diff .GT. 1e-4 ) GO TO 020
+
+    READ(ih) ppt_rates
+
+    CLOSE(ih)
+    IF (rank == 0) PRINT '("loaded ppt rates successfully")'
+    RETURN
+
+020 CLOSE(ih)
+    IF (rank == 0) PRINT '("failure to load rates, bad file format")'
+    CALL abort_code(c_err_bad_value)
+
+  END SUBROUTINE load_ppt_rates
+
 
   ! Do most of the calculations on a per-species basis once at start of
   ! simulation to save on computational time
@@ -347,7 +392,7 @@ CONTAINS
   SUBROUTINE initialise_media
 
     INTEGER :: i, iu, io, err_laser, im
-    LOGICAL :: laser_set, any_field_ionise
+    LOGICAL :: laser_set, any_field_ionise, ppt_preloaded
     TYPE(laser_block), POINTER :: current_laser
     INTEGER :: ncur_species, next_species
     INTEGER :: l, ma
@@ -438,6 +483,11 @@ CONTAINS
          keldysh_Fi(n_media),&
          keldysh_fexp(n_media))
 
+    ppt_preloaded = .FALSE.
+    IF (load_ionisation_file) THEN
+      CALL load_ppt_rates
+      ppt_preloaded = .TRUE.
+    END IF
     DO im=1, n_media
       ncur_species = media_list(im)%species
 
@@ -454,11 +504,13 @@ CONTAINS
 
       ma = 0 !for now, we don't do m...
 
-      IF (omega .GT. small_omega) THEN
+      IF (ppt_preloaded) THEN
+        CONTINUE
+      ELSE IF (omega .LE. small_omega) THEN
+        PRINT '("skipping ppt for small omega")'
+      ELSE
         CALL calculate_ppt_rates(&
              ppt_rates(:,im), ion_charge, omega, U0, l, ma)
-      ELSE
-        IF (rank == 0) PRINT '("skipping ppt for small omega")'
       END IF
       ! in the very low gamma limit (here, \gamma < 0.2
       ! we do "keldysh" ionisation, really Eq. 59 of PPT with
@@ -470,8 +522,9 @@ CONTAINS
            keldysh_Fi(im), &
            keldysh_fexp(im), &
            ion_charge, U0, l, ma)
-      IF ( media_list(im)%dump_ionisation_rates ) CALL dump_rates(im)
     END DO
+
+    IF ( dump_ionisation_file ) CALL dump_ppt_rates
 
   END SUBROUTINE initialise_media
 
@@ -560,11 +613,11 @@ CONTAINS
 
   SUBROUTINE ionise_media
 
-    INTEGER :: im, ne, n, i, ix, iy, cur_spec, elec_spec, next_spec, nextm, &
+    INTEGER :: im, ne, n, i, ix, iy, ncur_spec, elec_spec, next_spec, nextm, &
          ncreate, nmax_create, ntmp, nl, nn, next_me, &
          ncreate_coll_total, ncreate_field_total
     INTEGER :: ncreate_coll_totalr, ncreate_field_totalr, ierr, &
-         itimest, itimeen
+         itimest, itimeen, ncell_fieldionis
 
     REAL(num) enorm, rate, dN, cur_N, U0, dN_field, &
          next_create_min, next_create_max, next_weight, &
@@ -585,8 +638,8 @@ CONTAINS
          next_parts_only, & ! both next and electrons are macroparticles
          any_parts,       & ! (.NOT. next_media .OR. .NOT. elec_media)
          parts_produced, &  ! any of the next states have macroparticles
-         use_probsm   !  use probablistic ionisation for sub next_create_min
-                      !  ionisation.
+         use_probsm,& ! use probablistic ionisation for sub next_create_min
+         per_coll     ! do collision count sampling on a per collision basis
 
     INTEGER(8) :: nelec
     INTEGER :: npart
@@ -604,26 +657,24 @@ CONTAINS
       CALL system_clock(itimest)
 
       cur_medium => media_list(im)
-      cur_spec = cur_medium%species
+      ncur_spec = cur_medium%species
 
       enorm_max = 0.0_num
       rate_max  = 0.0_num
 
-      min_N = HUGE(1.0_num)
-      max_N = 0.0_num
+      IF (.NOT. species_list(ncur_spec)%ionise) CYCLE
 
-      IF (.NOT. species_list(cur_spec)%ionise) CYCLE
-
-      next_spec = species_list(cur_spec)%ionise_to_species
+      next_spec = species_list(ncur_spec)%ionise_to_species
       next_media = species_list(next_spec)%medium_species
       next_create_min = media_list(im)%next_create_min
       nmax_create = media_list(im)%nmax_create
       use_probsm = media_list(im)%use_prob
+      per_coll =  media_list(im)%per_coll
 
       IF (next_media) &
            nextm = species_list(next_spec)%medium_index
 
-      elec_spec = species_list(cur_spec)%release_species
+      elec_spec = species_list(ncur_spec)%release_species
       elec_media = species_list(elec_spec)%medium_species
       next_media_only = next_media .AND. elec_media
       any_parts = .NOT. next_media_only
@@ -631,9 +682,9 @@ CONTAINS
 
       IF (elec_media) next_me = ielectron_medium
 
-      U0 = species_list(cur_spec)%ionisation_energy
-      nn = species_list(cur_spec)%n
-      nl = species_list(cur_spec)%l
+      U0 = species_list(ncur_spec)%ionisation_energy
+      nn = species_list(ncur_spec)%n
+      nl = species_list(ncur_spec)%l
 
       IF (cur_medium%use_collisional_ionisation) THEN
         ncreate_coll_total = 0
@@ -647,15 +698,12 @@ CONTAINS
         ion_charge = species_list(next_spec)%charge
         rate_c = 0
 
-        DO iy = 1,ny
-  xlp1: DO ix = 1,nx
+        DO iy = 0,ny
+  xlp1: DO ix = 0,nx
 
           cur_N = media_density(ix,iy,im)
 
           IF (cur_N .LT. lowdens) CYCLE xlp1
-
-          ncreate = 0
-          rate_c = 0
 
           nelec = species_list(elec_spec)%secondary_list(ix,iy)%count
           cur => species_list(elec_spec)%secondary_list(ix,iy)%head
@@ -765,16 +813,6 @@ nelp:     DO ne=1,nelec
             END IF
 
             e_ke_en = e_ke_st - U0*dN / elec_N
-            ! IF (parts_produced) THEN
-            !   e_ke_en = e_ke_st - U0*ncreate
-            ! ELSE
-            !   e_ke_en = e_ke_st - U0*dN*dx*dy
-            ! END IF
-
-            !PRINT '("PING, dN=", ES11.2, ",ncreate=",I4,&
-            !     &", e_ke_st=", ES11.2,", e_ke_en=", ES11.2,&
-            !     &", e_pos=",3ES10.1)', &
-            !     dN, ncreate, e_ke_st, e_ke_en, e_pos
 
             e_p = e_p*sqrt( ((e_ke_en/e_restE + 1)**2 - 1) / e_p2_st) * m0*c
 
@@ -783,7 +821,7 @@ nelp:     DO ne=1,nelec
             media_density(ix,iy,im) = cur_N - dN
             cur_N = media_density(ix,iy,im)
 
-            IF (cur_medium%bound) THEN
+            IF (cur_medium%bound .AND. dN .GT. 0) THEN
               n = cur_medium%parent_index
 
               media_density(ix, iy, n) = media_density(ix, iy, n) - dN
@@ -791,11 +829,16 @@ nelp:     DO ne=1,nelec
                    media_density(ix,iy,n) = 0.0_num
             END IF
 
-            ncreate_coll_total = ncreate_coll_total + ncreate
-
             cur => cur%next
           END DO nelp
 
+          ! if not per coll, we merge the new electrons into nmax_create
+          !IF (new_e_plist%count > 0) PRINT '("<<", I2.2, ">>")', new_e_plist%count
+          IF (.NOT. per_coll .AND. new_e_plist%count.GT.nmax_create) THEN
+            PRINT *, " >> coll merge <<"
+            CALL simple_merge_plist(nmax_create, new_e_plist)
+          END IF
+          ncreate_coll_total = ncreate_coll_total + new_e_plist%count
           CALL append_partlist(&
                species_list(elec_spec)%secondary_list(ix,iy), new_e_plist)
 
@@ -807,8 +850,10 @@ nelp:     DO ne=1,nelec
       IF (cur_medium%use_field_ionisation) THEN
         ncreate_field_total = 0
 
-        DO iy = 1,ny
-  xlp2: DO ix = 1,nx
+        ncell_fieldionis = 0
+
+        DO iy = 0,ny
+  xlp2: DO ix = 0,nx
 
           cur_N = media_density(ix,iy,im)
           ncreate = 0
@@ -853,6 +898,8 @@ nelp:     DO ne=1,nelec
               next_weight = dN / nmax_create
               ncreate = nmax_create
             END IF
+            IF (ncreate .GT. 0) &
+                 ncell_fieldionis = ncell_fieldionis + 1
           END IF
 
           IF ( next_parts_only ) THEN
@@ -880,6 +927,14 @@ nelp:     DO ne=1,nelec
             END IF
           END IF !next parts only
 
+          IF (cur_medium%bound .AND. dN .GT. 0) THEN
+            n = cur_medium%parent_index
+
+            media_density(ix, iy, n) = media_density(ix, iy, n) - dN
+            IF (media_density(ix, iy, n) .lt. 0) &
+                 media_density(ix,iy,n) = 0.0_num
+          END IF
+
           media_density(ix,iy,im) = cur_N - dN
 
           ncreate_field_total = ncreate_field_total + ncreate
@@ -890,11 +945,20 @@ nelp:     DO ne=1,nelec
       END IF ! use field ionisation
 
 
-      IF (stdout_frequency .GT. 0 .AND. &
-          MOD(step, stdout_frequency) == 0) THEN
+      IF (stdout_frequency .GT. 0) THEN
+        IF (MOD(step, stdout_frequency) .NE. 0) CYCLE
         ! get media density
-        DO iy = 1,ny
-  xlp3: DO ix = 1,nx
+        min_N = HUGE(1.0_num)
+        max_N = 0.0_num
+
+        IF (ncell_fieldionis > 0) THEN
+          n = ncreate_field_total / ncell_fieldionis
+          PRINT '("rank = ", I2.2,", n_avg = ", I3.3, &
+               &" ncell_fieldionis = ", I4.4)', rank, n, ncell_fieldionis
+        END IF
+
+        DO iy = 0,ny
+  xlp3: DO ix = 0,nx
 
           IF      ( media_density(ix,iy,im) < min_N ) THEN
             min_N = media_density(ix,iy,im)
@@ -919,10 +983,11 @@ nelp:     DO ne=1,nelec
 
         IF (rank == 0 ) THEN
 
-          PRINT '("media_ionise: step=",I7.7,", field ionis.=",I5.5,&
+          PRINT '("media_ionise: species=",A,", step=",I7.7,", field ionis.=",I5.5,&
                  &", coll. ionis.=",I5.5,", peak E=",&
                  & ES9.3,", max_N=",ES9.3,", min_N=",ES13.7)',&
-                 step, ncreate_coll_totalr, ncreate_field_totalr, &
+                 TRIM(species_list(ncur_spec)%name), &
+                 step, ncreate_field_totalr, ncreate_coll_totalr, &
                  enorm_maxr, max_Nr, min_Nr
 
           CALL system_clock(itimeen)
@@ -937,30 +1002,45 @@ nelp:     DO ne=1,nelec
   ! based on user input, break media into macroparticles
   SUBROUTINE media_particle_production
     
-    INTEGER :: im, ix, iy, ncreate, cur_spec
+    INTEGER :: im, ix, iy, ncreate, cur_spec, nmax_create
     TYPE(medium), POINTER :: cur_medium
-    REAL(num) :: create_min, cur_N
+    REAL(num) :: create_min, cur_N, next_weight, reduction
 
-    DO im=1,n_media
+    REAL(num), PARAMETER :: &
+         create_min_threshold = HUGE(1.0_num)*0.99_num
+
+    imlp: DO im=1,n_media
+
       cur_medium => media_list(im)
       cur_spec = cur_medium%species
       create_min = cur_medium%particle_create_density
+      IF (create_min .GE. create_min_threshold) CYCLE imlp
 
-      DO iy = 1, ny
-      DO ix = 1, nx
+      nmax_create = cur_medium%nmax_create
+
+      DO iy = 0, ny
+xlp4: DO ix = 0, nx
 
         cur_N = media_density(ix, iy, im)
-        IF (cur_N .GT. create_min) THEN
-          ncreate = FLOOR(cur_N/create_min)
-          CALL create_media_particles(ncreate, create_min, cur_spec,&
-                                      ix, iy)
-          media_density(ix,iy,n) = cur_N - ncreate*create_min
+
+        IF (cur_N .LE. create_min) CYCLE xlp4
+
+        ncreate = FLOOR(cur_N/create_min)
+        next_weight = create_min
+        reduction = MIN(next_weight*ncreate, cur_N)
+
+        IF (ncreate .GT. nmax_create) THEN
+          ncreate = nmax_create
+          next_weight = reduction / ncreate
         END IF
+        CALL create_media_particles(ncreate, next_weight, cur_spec,&
+             ix, iy)
+        media_density(ix,iy,im) = cur_N - reduction
 
-      END DO
+      END DO xlp4
       END DO
 
-    END DO
+    END DO imlp
 
   END SUBROUTINE media_particle_production
 
@@ -1056,7 +1136,7 @@ nelp:     DO ne=1,nelec
 
   SUBROUTINE update_medium_n1n2
 
-    INTEGER :: ix,iy,n, im
+    INTEGER :: ix,iy, im
     REAL(num) :: N_c, v, alpha, alpha2, cur_N, max_n1
 
     DO im = 1,n_media
@@ -1067,8 +1147,8 @@ nelp:     DO ne=1,nelec
       alpha = media_list(im)%mol_al1
       alpha2= media_list(im)%mol_al2
 
-      DO iy = 1,ny
-      DO ix = 1,nx
+      DO iy = 0,ny
+      DO ix = 0,nx
 
         cur_N = media_density(ix,iy,im)
         eps_n1(ix,iy) = 1.0_num + cur_N*alpha
@@ -1077,22 +1157,78 @@ nelp:     DO ne=1,nelec
       END DO
       END DO
 
-
     END DO
 
+  END SUBROUTINE update_medium_n1n2
 
+
+
+  SUBROUTINE update_electron_medium_eps
+    INTEGER :: ix,iy, im
+    REAL(num) :: N_c
 
     IF (ielectron_medium == -1) RETURN
 
-    n = ielectron_medium
+    im = ielectron_medium
 
     N_c = omega**2*epsilon0*m0/q0**2
 
-    epsx = epsx - media_density(:,:,n) / N_c
-    epsy = epsy - media_density(:,:,n) / N_c
-    epsz = epsz - media_density(:,:,n) / N_c
-    
-  END SUBROUTINE update_medium_n1n2
+    epsx = epsx - media_density(:,:,im) / N_c
+    epsy = epsy - media_density(:,:,im) / N_c
+    epsz = epsz - media_density(:,:,im) / N_c
 
+  END SUBROUTINE update_electron_medium_eps
+
+
+
+  SUBROUTINE simple_merge_plist(nmax, plist)
+
+    INTEGER, INTENT(IN) :: nmax
+    TYPE(particle_list), INTENT(INOUT):: plist
+
+    TYPE(particle_list) :: new_plist
+    TYPE(particle), POINTER :: cur, new, next
+    REAL(num) avg_pos(3), avg_p(3), totw, curw
+
+    INTEGER n, ntake, ndiv, nrem, ncreated
+    CALL create_empty_partlist(new_plist)
+
+    ndiv = plist%count / nmax
+    nrem = MOD(INT(plist%count, KIND(nmax)), nmax)
+    cur => plist%head
+    DO ncreated = 1, nmax
+      ntake = ndiv
+      IF (ncreated <= nrem) ntake = ntake + 1
+
+      IF (ntake == 1) EXIT
+
+      totw = 0 ; avg_pos = 0 ; avg_p = 0
+      DO n=1, ntake
+        next => cur%next
+        curw = cur%weight
+        totw = totw + curw
+        avg_p   = avg_p   + curw*cur%part_p
+        avg_pos = avg_pos + curw*cur%part_pos
+        CALL remove_particle_from_partlist(plist, cur)
+        CALL destroy_particle(cur)
+        cur => next
+      END DO
+
+      avg_p   = avg_p   / totw
+      avg_pos = avg_pos / totw
+
+      NULLIFY(new)
+      CALL create_particle(new)
+      new%part_pos = avg_pos
+      new%part_ip  = avg_pos
+      new%part_p   = avg_p
+      new%weight   = totw
+
+      CALL add_particle_to_partlist(new_plist, new)
+    END DO
+
+    CALL append_partlist(plist, new_plist)
+
+  END SUBROUTINE simple_merge_plist
 #endif
 END MODULE media
