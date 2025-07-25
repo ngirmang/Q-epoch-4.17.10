@@ -70,10 +70,6 @@ MODULE deck_species_block
   INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
 
 #endif
-#ifdef CONSTEPS
-  LOGICAL :: species_eps_off
-  LOGICAL, DIMENSION(:), POINTER :: eps_off
-#endif
 #ifdef MERGE_PARTICLES
   LOGICAL :: species_merge
   LOGICAL, DIMENSION(:), POINTER :: merges
@@ -121,10 +117,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef CONSTEPS
-      ALLOCATE(eps_off(4))
-      eps_off = .FALSE.
 #endif
 #ifdef MERGE_PARTICLES
       ALLOCATE(merges(4))
@@ -185,9 +177,6 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef CONSTEPS
-        species_list(i)%eps_off_on_ionise = eps_off(i)
-#endif
 #ifdef MERGE_PARTICLES
         species_list(i)%merge = merges(i)
         species_list(i)%merge_max_energy_sig = en_sigs(i)
@@ -237,9 +226,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef CONSTEPS
-      DEALLOCATE(eps_off)
 #endif
 #ifdef MERGE_PARTICLES
       DEALLOCATE(merges)
@@ -426,9 +412,6 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef CONSTEPS
-    species_eps_off = .FALSE.
-#endif
 #ifdef MERGE_PARTICLES
     species_merge = .FALSE.
     species_en_sig = 2.0_num
@@ -483,10 +466,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef CONSTEPS
-      eps_off(n_species) = species_eps_off
-      species_eps_off = .FALSE.
 #endif
 #ifdef MERGE_PARTICLES
       merges(n_species) = species_merge
@@ -638,12 +617,6 @@ CONTAINS
 #endif
 ! end BOUND_HARMONIC 
 #endif
-#ifdef CONSTEPS
-    IF (str_cmp(element, 'eps_off_on_ionise')) THEN
-      species_eps_off = as_logical_print(value, element, errcode)
-      RETURN
-    END IF
-#endif
 
     IF (str_cmp(element, 'dump')) THEN
       dump = as_logical_print(value, element, errcode)
@@ -724,6 +697,15 @@ CONTAINS
         value, element, errcode)
       RETURN
     END IF
+
+#endif
+#ifdef CONSTEPS
+    IF (str_cmp(element, 'eps_off_on_ionise')) THEN
+      species_list(species_id)%eps_off_on_ionise = &
+        as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
 #endif
 #ifdef MERGE_PARTICLES
     IF (str_cmp(element, 'merge_particles')) THEN
@@ -1562,9 +1544,6 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef CONSTEPS
-    CALL grow_array(eps_off, n_species)
-#endif
 #ifdef MERGE_PARTICLES
     CALL grow_array(merges, n_species)
     CALL grow_array(en_sigs, n_species)
@@ -1594,9 +1573,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef CONSTEPS
-    eps_off(n_species) = .FALSE.
 #endif
 #ifdef MERGE_PARTICLES
     merges(n_species) = .FALSE.
@@ -1681,10 +1657,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef CONSTEPS
-    CALL grow_array(eps_off,n_species)
-    eps_off(n_species) = .FALSE.
 #endif
 #ifdef MERGE_PARTICLES
     CALL grow_array(merges,n_species)

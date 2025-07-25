@@ -419,6 +419,10 @@ CONTAINS
         ex_part = ex_part + global_e(1)
         ey_part = ey_part + global_e(2)
         ez_part = ez_part + global_e(3)
+
+        bx_part = bx_part + global_b(1)
+        by_part = by_part + global_b(2)
+        bz_part = bz_part + global_b(3)
 #endif
         ! update particle momenta using weighted fields
 #if defined(BOUND_HARMONIC) && defined(NONLIN)
@@ -748,7 +752,7 @@ CONTAINS
     REAL(num) part_m
 
     IF (check_bound_interval == 0 ) RETURN
-    IF (MOD(step, check_bound_interval) > 0) RETURN
+    IF (step == 0 .OR. MOD(step, check_bound_interval) > 0) RETURN
     IF (rank == 0) PRINT "(A,I6.6)", "checking bound at step = ", step
 
     maxd = (/dx, dy, (dx+dy)/2 /) / bound_safe_factor

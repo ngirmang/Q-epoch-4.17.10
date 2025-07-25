@@ -22,6 +22,9 @@ MODULE fields
 #ifdef NEWPML
   USE utilities
 #endif
+#ifdef MEDIUM
+  USE media, only : update_medium_n1n2, update_electron_medium_eps
+#endif
 
   IMPLICIT NONE
 
@@ -204,6 +207,23 @@ CONTAINS
       RETURN
     END IF
 #endif
+#ifdef CONSTEPS
+
+    IF      (use_eps_n1n2) THEN
+
+      CALL update_eps_n1n2
+      CALL update_e_field_eps
+      RETURN
+
+    ELSE IF (use_eps3) THEN
+
+      CALL update_eps3
+      CALL update_e_field_eps
+      RETURN
+
+    END IF
+#endif
+
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
         DO iz = 0, nz
@@ -479,7 +499,212 @@ CONTAINS
 
   END SUBROUTINE update_e_field
 
+#ifdef CONSTEPS
+
+
+  SUBROUTINE update_eps_n1n2
+
+    INTEGER :: ix, iy, iz
+    REAL(num) :: esq, vn
+    ! add chi3, use epsy as a temporary
+
+#ifdef MEDIUM
+    CALL update_medium_n1n2
+#endif
+
+    IF (saturateable_n2) THEN
+
+      DO iz = 0,nz
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =       (0.5_num*(ex(ix-1,iy,iz) + ex(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ey(ix,iy-1,iz) + ey(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ez(ix,iy,iz-1) + ez(ix,iy,iz)))**2.0_num
+
+        vn  = 1.0_num - 1.0_num / (1.0_num + eps_n2(ix,iy,iz)*esq)
+        vn  = vn + eps_n1(ix,iy,iz)
+        vn  = vn**2
+
+        epsx(ix,iy,iz) = vn
+        epsy(ix,iy,iz) = vn
+        epsz(ix,iy,iz) = vn
+      END DO
+      END DO
+      END DO
+
+    ELSE
+
+      DO iz = 0,nz
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =       (0.5_num*(ex(ix-1,iy,iz) + ex(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ey(ix,iy-1,iz) + ey(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ez(ix,iy,iz-1) + ez(ix,iy,iz)))**2.0_num
+
+        vn  = eps_n1(ix,iy,iz) + eps_n2(ix,iy,iz)*esq
+        vn  = vn**2
+
+        epsx(ix,iy,iz) = vn
+        epsy(ix,iy,iz) = vn
+        epsz(ix,iy,iz) = vn
+      END DO
+      END DO
+      END DO
+    END IF
+
+
+#ifdef MEDIUM
+    CALL update_electron_medium_eps
+#endif
+
+    ! average chi
+    IF (use_eps_spatial_average) CALL spatial_average_eps
+
+  END SUBROUTINE update_eps_n1n2
+
+
+
+  SUBROUTINE update_eps3
+    
+    INTEGER :: ix, iy, iz
+    REAL(num) :: esq, t3
+    ! add chi3, use epsy as a temporary
+    IF (saturateable_eps3) THEN
+
+      DO iz = 0,nz
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =       (0.5_num*(ex(ix-1,iy,iz) + ex(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ey(ix,iy-1,iz) + ey(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ez(ix,iy,iz-1) + ez(ix,iy,iz)))**2.0_num
+
+        t3 = 1.0_num - 1.0_num/(1.0_num + eps3(ix,iy,iz)*esq)
+
+        epsx(ix,iy,iz) = eps0x(ix,iy,iz) + t3
+        epsy(ix,iy,iz) = eps0y(ix,iy,iz) + t3
+        epsz(ix,iy,iz) = eps0z(ix,iy,iz) + t3
+      END DO
+      END DO
+      END DO
+
+    ELSE
+
+      DO iz = 0,nz
+      DO iy = 0,ny
+      DO ix = 0,nx
+        esq =       (0.5_num*(ex(ix-1,iy,iz) + ex(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ey(ix,iy-1,iz) + ey(ix,iy,iz)))**2.0_num
+        esq = esq + (0.5_num*(ez(ix,iy,iz-1) + ez(ix,iy,iz)))**2.0_num
+
+        epsx(ix,iy,iz) = eps0x(ix,iy,iz) + eps3(ix,iy,iz)*esq
+        epsy(ix,iy,iz) = eps0y(ix,iy,iz) + eps3(ix,iy,iz)*esq
+        epsz(ix,iy,iz) = eps0z(ix,iy,iz) + eps3(ix,iy,iz)*esq
+      END DO
+      END DO
+      END DO
+
+    END IF
+    ! average chi
+    IF (use_eps_spatial_average) CALL spatial_average_eps
+
+  END SUBROUTINE update_eps3
+
+
+
+  SUBROUTINE spatial_average_eps
+
+    INTEGER :: ix, iy, iz
+    REAL(num) :: a1, a2
+    a1 = eps_a1
+    a2 = (1.0_num - eps_a1)/3.0_num
+
+    DO iz = 0,nz
+    DO iy = 0,ny
+    DO ix = 0,nx
+      eps_temp(ix,iy,iz) = a1*epsx(ix,iy,iz) &
+        + a2*( epsx(ix-1,iy,iz) + epsx(ix+1,iy,iz) &
+             + epsx(ix,iy-1,iz) + epsx(ix,iy+1,iz) &
+             + epsx(ix,iy,iz-1) + epsx(ix,iy,iz+1))
+    END DO
+    END DO
+    END DO
+
+    epsx = eps_temp
+
+    DO iz = 0,nz
+    DO iy = 0,ny
+    DO ix = 0,nx
+      eps_temp(ix,iy,iz) = a1*epsy(ix,iy,iz) &
+        + a2*( epsy(ix-1,iy,iz) + epsy(ix+1,iy,iz) &
+             + epsy(ix,iy-1,iz) + epsy(ix,iy+1,iz) &
+             + epsy(ix,iy,iz-1) + epsy(ix,iy,iz+1))
+    END DO
+    END DO
+    END DO
+
+    epsy = eps_temp
+
+    DO iz = 0,nz
+    DO iy = 0,ny
+    DO ix = 0,nx
+      eps_temp(ix,iy,iz) = a1*epsy(ix,iy,iz) &
+        + a2*( epsy(ix-1,iy,iz) + epsy(ix+1,iy,iz) &
+             + epsy(ix,iy-1,iz) + epsy(ix,iy+1,iz) &
+             + epsy(ix,iy,iz-1) + epsy(ix,iy,iz+1))
+    END DO
+    END DO
+    END DO
+
+    epsz = eps_temp
+
+  END SUBROUTINE spatial_average_eps
+
+
+
+  SUBROUTINE update_e_field_eps
+    
+    INTEGER  :: ix, iy, iz
+    REAL(num) :: ciex, ciey, ciez
+    REAL(num) :: cx1, cy1, cz1
+
+    
+    IF (field_order /= 2) THEN
+      PRINT '(A)', "esp3 is only implemented for yee, field_order == 2"
+      CALL abort_code(c_err_bad_setup)
+    END IF
+
+    DO iz = 0, nz
+    DO iy = 0, ny
+    DO ix = 0, nx
+      ciex = 1.0_num / epsx(ix,iy,iz)
+      ciey = 1.0_num / epsy(ix,iy,iz)
+      ciez = 1.0_num / epsz(ix,iy,iz)
+      
+      ex(ix, iy, iz) = ex(ix, iy, iz) &
+        + ciex * cy1 * (bz(ix  , iy  , iz  ) - bz(ix  , iy-1, iz  )) &
+        - ciex * cz1 * (by(ix  , iy  , iz  ) - by(ix  , iy  , iz-1)) &
+        - ciex * fac * jx(ix, iy, iz)
+
+      ey(ix, iy, iz) = ey(ix, iy, iz) &
+        + ciey * cz1 * (bx(ix  , iy  , iz  ) - bx(ix  , iy  , iz-1)) &
+        - ciey * cx1 * (bz(ix  , iy  , iz  ) - bz(ix-1, iy  , iz  )) &
+        - ciey * fac * jy(ix, iy, iz)
+
+      ez(ix, iy, iz) = ez(ix, iy, iz) &
+        + ciez * cx1 * (by(ix  , iy  , iz  ) - by(ix-1, iy  , iz  )) &
+        - ciez * cy1 * (bx(ix  , iy  , iz  ) - bx(ix  , iy-1, iz  )) &
+        - ciez * fac * jz(ix, iy, iz)
+    END DO
+    END DO
+    END DO
+
+  END SUBROUTINE update_e_field_eps
+!end CONSTEPS
+#endif
 #ifdef NEWPML
+
+
+
   SUBROUTINE update_e_field_newpml
 
     INTEGER :: ix, iy, iz
@@ -925,7 +1150,9 @@ CONTAINS
 
   END SUBROUTINE update_b_field
 #ifdef NEWPML
-  
+
+
+
   SUBROUTINE update_b_field_newpml
 
     INTEGER :: ix, iy, iz

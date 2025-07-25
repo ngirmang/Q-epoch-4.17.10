@@ -727,6 +727,7 @@ CONTAINS
     ELSE IF (str_cmp(element, 'total_energy_sum')) THEN
       elementselected = c_dump_total_energy_sum
 #ifdef CONSTEPS
+
     ELSE IF (str_cmp(element, 'epsx') .AND. eps_stored) THEN
       elementselected = c_dump_eps_x
 

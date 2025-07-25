@@ -737,6 +737,11 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
+#ifdef CONSTEPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
+#endif
+
         END IF
         current => next
       END DO
@@ -1046,6 +1051,10 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
+#ifdef CONSTEPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
+#endif
         END IF
         current => next
       END DO
@@ -1342,6 +1351,10 @@ CONTAINS
                field_ionisation_counts(current_state) + 1
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
+#endif
+#ifdef CONSTEPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
 #endif
         END IF
         current => next
@@ -1652,6 +1665,10 @@ CONTAINS
           ! for ionised particle, diminsh their partners
           CALL diminish_partners(current, species_list(i)%diminish_factor)
 #endif
+#ifdef CONSTEPS
+          IF (species_list(i)%eps_off_on_ionise) &
+               CALL kill_eps(current%part_pos)
+#endif
         END IF
         current => next
       END DO
@@ -1714,5 +1731,42 @@ CONTAINS
 #endif
   END SUBROUTINE diminish_partners
 #endif
+
+
+
+#ifdef CONSTEPS
+  SUBROUTINE kill_eps(pos)
+
+    REAL(num), INTENT(IN) :: pos(3)
+    INTEGER i, j, k
+
+#ifdef PARTICLE_SHAPE_TOPHAT
+    i = FLOOR((pos(1) - x_grid_min_local) / dx) + 1
+    j = FLOOR((pos(2) - y_grid_min_local) / dy) + 1
+    k = FLOOR((pos(3) - z_grid_min_local) / dz) + 1
+#else
+    i = FLOOR((pos(1) - x_grid_min_local) / dx + 1.5_num)
+    j = FLOOR((pos(2) - y_grid_min_local) / dy + 1.5_num)
+    k = FLOOR((pos(3) - z_grid_min_local) / dz + 1.5_num)
+#endif
+
+    IF (use_eps3) THEN
+      eps0x(i,j,k) = 1.0_num
+      eps0y(i,j,k) = 1.0_num
+      eps0z(i,j,k) = 1.0_num
+
+      eps3(i,j,k) = 0
+    ELSE IF (use_eps_n1n2) THEN
+      eps_n1(i,j,k) = 1.0_num
+      eps_n2(i,j,k) = 0.0_num
+    ELSE
+      iepsx(i,j,k) = 1.0_num
+      iepsy(i,j,k) = 1.0_num
+      iepsz(i,j,k) = 1.0_num
+    END IF
+  END SUBROUTINE kill_eps
+#endif
+
+
 
 END MODULE ionise

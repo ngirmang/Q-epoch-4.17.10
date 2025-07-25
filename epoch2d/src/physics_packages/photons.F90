@@ -852,6 +852,11 @@ CONTAINS
     ex_part = ex_part + global_e(1)
     ey_part = ey_part + global_e(2)
     ez_part = ez_part + global_e(3)
+
+    bx_part = bx_part + global_b(1)
+    by_part = by_part + global_b(2)
+    bz_part = bz_part + global_b(3)
+
 #endif
     ! update particle momenta using weighted fields
     ! ex_part etc are NOT fields at particle, but fac times

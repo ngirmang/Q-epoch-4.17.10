@@ -605,6 +605,7 @@ CONTAINS
       END IF
     END IF
 
+#ifdef MEDIUM
     IF (n_media > 0) THEN ! so far, temp_sum is not used yet
 
       ALLOCATE(temp_sum(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
@@ -616,6 +617,7 @@ CONTAINS
       ALLOCATE(media_density(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
       media_density = temp_sum
       DEALLOCATE(temp_sum) ! later, the size is assumed...sigh
+#endif
       
     END IF
          

@@ -25,6 +25,12 @@ MODULE shared_data
 
   IMPLICIT NONE
 
+#ifdef BOUND_HARMONIC
+#ifndef CONSTEPS
+#error "we now require BOUND_HARMONIC and CONSTEPS to be compiled together"
+#endif
+#endif
+
   ! This type represents parameters given to the parser.
   ! It can be extended by a developer freely
   ! It is the responsibility of the developer to ensure that a parameter is
@@ -239,8 +245,6 @@ MODULE shared_data
     INTEGER, DIMENSION(:), POINTER :: bound_to
     LOGICAL :: dont_transfer_cpu
     REAL(num) :: diminish_factor
-
-    LOGICAL :: medium_species = .FALSE.
 #ifdef NONLIN
     REAL(num) :: nl_alpha3 = 0.0_num
     REAL(num) :: linear_factor = 1.0_num
@@ -248,7 +252,24 @@ MODULE shared_data
 #endif
 !end BOUND_HARMONIC
 #endif
-    
+#ifdef CONSTEPS
+    LOGICAL :: eps_off_on_ionise = .FALSE.
+#endif
+#if defined(BOUND_HARMONIC) || defined(MEDIUM)
+    LOGICAL :: medium_species = .FALSE.
+#endif
+#ifdef MEDIUM
+    INTEGER :: medium_index = -1
+#endif
+#ifdef MERGE_PARTICLES
+    LOGICAL :: merge = .FALSE.
+    INTEGER :: merge_max_particles = 200000000
+    REAL(num) :: merge_max_energy_sig = 2.0_num
+    REAL(num) :: merge_max_pcomp_sig =  2.0_num
+    INTEGER :: merge_start = 0
+    REAL(num) :: merge_energy_cut = HUGE(1.0_num)
+#endif
+
     ! Specify if species is background species or not
     LOGICAL :: background_species = .FALSE.
     ! Background density
@@ -481,10 +502,31 @@ MODULE shared_data
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: cpml_psi_exz, cpml_psi_eyz
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: cpml_psi_bxz, cpml_psi_byz
 #ifdef CONSTEPS
+#ifndef NEWPML
+#error  "CONSTEPS must be compiled with NEWPML"
+#endif
 
   REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: iepsx, iepsy, iepsz
-  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: medium_factor
-  INTEGER :: medium_eps_mode = -1
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: epsx, epsy, epsz
+
+  TYPE(primitive_stack), SAVE :: epsx_func, epsy_func, epsz_func
+  TYPE(primitive_stack), SAVE :: eps3_func
+
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: eps0x, eps0y, eps0z
+
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: eps_n1, eps_n2
+  TYPE(primitive_stack), SAVE :: eps_n1_func, eps_n2_func
+  LOGICAL :: use_eps_n1n2 = .FALSE., saturateable_n2 = .FALSE.
+
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: eps3
+  LOGICAL :: use_eps3 = .FALSE., saturateable_eps3 = .FALSE.
+
+  
+  LOGICAL :: use_eps_spatial_average = .FALSE.
+  REAL(num) :: eps_a1 = 0.75_num
+  LOGICAL :: eps_stored = .FALSE.
+  REAL(num), ALLOCATABLE, DIMENSION(:,:,:) :: eps_temp
+!end CONSTEPS
 #endif
 #ifdef NEWPML
   REAL(num) pml_thickness_real(6)
@@ -493,6 +535,56 @@ MODULE shared_data
   LOGICAL  use_newpml, use_manualpml
   LOGICAL :: floating_laser=.FALSE.
 #endif!NEWPML
+#ifdef GLOBALFIELD
+  REAL(num) :: global_e(3) = 0.0_num
+  REAL(num) :: global_b(3) = 0.0_num
+#endif
+#ifdef MEDIUM
+
+  ! NEW SHIT: medium model, essentially, my particle-less attempt to model long
+  !           pulse propagation
+  INTEGER :: n_media = 0 ! number of ioniseable media
+
+  TYPE medium
+    CHARACTER(string_length) :: name
+    INTEGER :: species = -1
+
+    LOGICAL :: is_electron_species = .FALSE. ! this is an electron medium model
+
+    ! minimum production density to produce a electron macroparticle
+    REAL(num) :: particle_create_density = HUGE(1.0_num)
+    REAL(num) :: next_create_min = HUGE(1.0_num)
+
+    INTEGER :: nmax_create = 2000000
+
+    LOGICAL :: use_field_ionisation = .FALSE.
+    LOGICAL :: use_collisional_ionisation = .FALSE.
+    LOGICAL :: quantised = .FALSE.
+    LOGICAL :: per_coll = .FALSE.
+
+    CHARACTER(string_length) :: ionisation_file
+    CHARACTER(string_length) :: gamma_file
+    LOGICAL :: dump_ionisation_rates = .FALSE.
+    LOGICAL :: use_prob = .TRUE.
+
+    LOGICAL :: compound = .FALSE.
+
+    LOGICAL :: bound = .FALSE.
+    INTEGER :: parent_index = -1
+
+    LOGICAL :: contribute_n1 = .FALSE.
+    REAL(num) :: mol_al1 = 0.0_num
+    REAL(num) :: mol_al2 = 0.0_num
+  END type medium
+
+  TYPE(medium), DIMENSION(:), POINTER :: media_list
+  REAL(num), DIMENSION(:,:,:,:), ALLOCATABLE :: media_density
+
+  INTEGER :: ielectron_medium = -1
+  INTEGER :: media_prod_freq = 1
+  CHARACTER(LEN=string_length) :: full_ionisation_file
+  LOGICAL :: dump_ionisation_file = .FALSE., load_ionisation_file = .FALSE.
+#endif
 
   !----------------------------------------------------------------------------
   ! Core code
@@ -623,6 +715,10 @@ MODULE shared_data
   INTEGER, DIMENSION(:), ALLOCATABLE :: coll_ionisation_counts
   INTEGER, DIMENSION(:), ALLOCATABLE :: last_field_ionisation_counts
   INTEGER, DIMENSION(:), ALLOCATABLE :: last_coll_ionisation_counts
+#endif
+#ifdef MERGE_PARTICLES
+  INTEGER :: merge_nsteps = -1, merge_max_nstep = HUGE(1)
+  INTEGER :: merge_scheme = 1
 #endif
 
   INTEGER :: maxwell_solver = c_maxwell_solver_yee

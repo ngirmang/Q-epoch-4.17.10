@@ -480,6 +480,19 @@ CONTAINS
     ELSE IF (str_cmp(element, 'print_ionisation_counts')) THEN
       print_ionisation_counts = as_logical_print(value, element, errcode)
 #endif
+#ifdef MEDIUM
+    ELSE IF (str_cmp(element, 'dump_ppt_rates')) THEN
+      dump_ionisation_file = as_logical_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'load_ppt_rates')) THEN
+      load_ionisation_file = as_logical_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'ppt_rate_file')) THEN
+      full_ionisation_file = value
+
+    ELSE IF (str_cmp(element, 'media_production_frequency')) THEN
+      media_prod_freq = as_integer_print(value, element, errcode)
+#endif
 
     ELSE
       errcode = c_err_unknown_element

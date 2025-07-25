@@ -56,8 +56,6 @@ MODULE deck_species_block
   REAL(num), DIMENSION(:,:), POINTER :: harmonic_om
   REAL(num), DIMENSION(3) :: species_harmonic_gm
   REAL(num), DIMENSION(:,:), POINTER :: harmonic_gm
-  REAL(num) :: species_bfield_sample_factor
-  REAL(num), DIMENSION(:), POINTER :: bfield_sample_factor
   INTEGER, DIMENSION(c_ndims) :: species_dir_nparts
   INTEGER, DIMENSION(:,:), POINTER :: dir_nparts
 #ifdef NONLIN
@@ -70,7 +68,7 @@ MODULE deck_species_block
   INTEGER :: n_bound_partners
   REAL(num), DIMENSION(:), POINTER :: r_bound_partners ! sigh...
   INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
-  
+
 #endif
   INTEGER, DIMENSION(2*c_ndims) :: species_bc_particle
 
@@ -98,8 +96,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
       ALLOCATE(harmonic_om(3,4))
       ALLOCATE(harmonic_gm(3,4))
-      ALLOCATE(bfield_sample_factor(4))
-      bfield_sample_factor = 1.0_num
       ALLOCATE(dir_nparts(c_ndims,4))
       dir_nparts = 0
 #ifdef NONLIN
@@ -155,7 +151,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
         species_list(i)%harmonic_omega = harmonic_om(:,i)
         species_list(i)%harmonic_gamma = harmonic_gm(:,i)
-        species_list(i)%bfield_sample_factor = bfield_sample_factor(i)
         species_list(i)%dir_nparts = dir_nparts(:,i)
 #ifdef NONLIN
         species_list(i)%nl_alpha3 = nl_alpha3(i)
@@ -366,7 +361,6 @@ CONTAINS
     offset = 0
 #ifdef BOUND_HARMONIC
     species_dir_nparts = 0
-    species_bfield_sample_factor = 1.0_num
     species_harmonic_om = 0.0_num
     species_harmonic_gm = 0.0_num
 #ifdef NONLIN
@@ -409,13 +403,11 @@ CONTAINS
 #ifdef BOUND_HARMONIC
       harmonic_om(:,n_species) = species_harmonic_om
       harmonic_gm(:,n_species) = species_harmonic_gm
-      bfield_sample_factor(n_species) = species_bfield_sample_factor
       dir_nparts(:,n_species) = species_dir_nparts
       ! I DO NOT KNOW WHY I MUST RESET THEM HERE
       ! WHAT ABOUT BEGIN?? IT DOESN'T WORK???
       species_harmonic_om = 0.0_num
       species_harmonic_gm = 0.0_num
-      species_bfield_sample_factor = 1.0_num
       species_dir_nparts = 0
 #ifdef NONLIN
       species_nl_alpha3 = 0
@@ -541,11 +533,6 @@ CONTAINS
       RETURN
     END IF
 
-    IF (str_cmp(element, 'bfield_sample_factor')) THEN
-      species_bfield_sample_factor = as_real_print(value, element, errcode)
-      RETURN
-    END IF
-
     IF      (str_cmp(element, 'xdir_npart_per_cell')) THEN
       species_dir_nparts(1) = as_integer_print(value, element, errcode)
       RETURN
@@ -643,6 +630,52 @@ CONTAINS
     IF (str_cmp(element, 'diminish_factor')) THEN
       species_list(species_id)%diminish_factor = as_real_print(&
            value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'bfield_sample_factor')) THEN
+      species_list(species_id)%bfield_sample_factor = &
+        as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
+#endif
+#ifdef CONSTEPS
+    IF (str_cmp(element, 'eps_off_on_ionise')) THEN
+      species_list(species_id)%eps_off_on_ionise = &
+        as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+
+#endif
+#ifdef MERGE_PARTICLES
+    IF (str_cmp(element, 'merge_particles')) THEN
+      species_list(species_id)%merge = as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_energy_sigma')) THEN
+      species_list(species_id)%merge_max_energy_sig = &
+           as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_max_pcomp_sigma')) THEN
+      species_list(species_id)%merge_max_pcomp_sig = &
+           as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_target_particles_per_cell')) THEN
+      species_list(species_id)%merge_max_particles &
+           = as_integer_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_start_threshold')) THEN
+      species_list(species_id)%merge_start = &
+           as_integer_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_energy_cutoff')) THEN
+      species_list(species_id)%merge_energy_cut = &
+           as_real_print(value, element, errcode)
       RETURN
     END IF
 #endif
@@ -1454,7 +1487,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     CALL grow_array(harmonic_om, 3, n_species)
     CALL grow_array(harmonic_gm, 3, n_species)
-    CALL grow_array(bfield_sample_factor, n_species)
     CALL grow_array(dir_nparts, c_ndims, n_species)
 #ifdef NONLIN
     CALL grow_array(nl_alpha3,n_species) 
@@ -1479,7 +1511,6 @@ CONTAINS
 #ifdef BOUND_HARMONIC
     harmonic_om(:,n_species) = 0.0_num
     harmonic_gm(:,n_species) = 0.0_num
-    bfield_sample_factor(n_species) = 1.0_num
     dir_nparts(:, n_species) = 0
 #ifdef NONLIN
     nl_alpha3(n_species) = 0
@@ -1554,8 +1585,6 @@ CONTAINS
     harmonic_om(:,n_species) = species_harmonic_om
     CALL grow_array(harmonic_gm,3,n_species)
     harmonic_gm(:,n_species) = species_harmonic_gm
-    CALL grow_array(bfield_sample_factor,n_species)
-    bfield_sample_factor(n_species) = species_bfield_sample_factor
     CALL grow_array(dir_nparts, c_ndims, n_species)
     dir_nparts(:, n_species) = species_dir_nparts
 #ifdef NONLIN

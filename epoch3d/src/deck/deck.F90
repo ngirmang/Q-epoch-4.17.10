@@ -47,6 +47,9 @@ MODULE deck
 #ifndef NO_PARTICLE_PROBES
   USE deck_particle_probe_block
 #endif
+#ifdef MEDIUM
+  USE deck_medium_block
+#endif
   ! Custom blocks
   USE custom_deck
   USE utilities
@@ -106,6 +109,9 @@ CONTAINS
     CALL species_deck_initialise
     CALL window_deck_initialise
     CALL part_from_file_deck_initialise
+#ifdef MEDIUM
+    CALL medium_deck_initialise
+#endif
 
   END SUBROUTINE deck_initialise
 
@@ -137,6 +143,9 @@ CONTAINS
     CALL part_from_file_deck_finalise ! Must be called after
                                       ! species_deck_finalise
     CALL window_deck_finalise
+#ifdef MEDIUM
+    CALL medium_deck_finalise
+#endif
 
   END SUBROUTINE deck_finalise
 
@@ -186,6 +195,10 @@ CONTAINS
       CALL window_block_start
     ELSE IF (str_cmp(block_name, 'particles_from_file')) THEN
       CALL part_from_file_block_start
+#ifdef MEDIUM
+    ELSE IF (str_cmp(block_name, 'medium')) THEN
+      CALL medium_block_start
+#endif
     END IF
 
   END SUBROUTINE start_block
@@ -237,6 +250,11 @@ CONTAINS
       CALL window_block_end
     ELSE IF (str_cmp(block_name, 'particles_from_file')) THEN
       CALL part_from_file_block_end
+#ifdef MEDIUM
+    !here and above I think the order here matters (medium block is last)
+    ELSE IF (str_cmp(block_name, 'medium')) THEN
+      CALL medium_block_end
+#endif
     END IF
 
   END SUBROUTINE end_block
@@ -328,6 +346,11 @@ CONTAINS
       handle_block = &
           part_from_file_block_handle_element(block_element, block_value)
       RETURN
+#ifdef MEDIUM
+    ELSE IF (str_cmp(block_name, 'medium')) THEN
+      handle_block = medium_block_handle_element(block_element, block_value)
+      RETURN
+#endif
     END IF
 
     handle_block = c_err_unknown_block
@@ -384,7 +407,9 @@ CONTAINS
     errcode_deck = IOR(errcode_deck, part_from_file_block_check())
 
     errcode_deck = IOR(errcode_deck, custom_blocks_check())
-
+#ifdef MEDIUM
+    errcode_deck = IOR(errcode_deck, medium_block_check())
+#endif
     problem_found = (IAND(errcode_deck, c_err_missing_elements) /= 0)
 
     IF (problem_found) THEN

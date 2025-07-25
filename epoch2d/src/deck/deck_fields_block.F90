@@ -160,6 +160,7 @@ CONTAINS
       RETURN
     END IF
 #ifdef CONSTEPS
+
     IF (eps_stored) THEN
       IF (str_cmp(element, 'eps_x')) THEN
         IF (got_file) THEN
@@ -170,7 +171,7 @@ CONTAINS
           
           CALL set_tokenizer_stagger(c_stagger_centre)
           CALL evaluate_string_in_space(value, eps0x, &
-               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+            1-ng, nx+ng, 1-ng, ny+ng, errcode)
         END IF
         RETURN
       END IF
@@ -184,7 +185,7 @@ CONTAINS
           
           CALL set_tokenizer_stagger(c_stagger_centre)
           CALL evaluate_string_in_space(value, eps0y, &
-               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+            1-ng, nx+ng, 1-ng, ny+ng, errcode)
         END IF
         RETURN
       END IF
@@ -299,7 +300,8 @@ CONTAINS
         iepsz = 1.0_num / iepsz
         RETURN
       END IF
-    END IF
+    END IF ! if stored eps
+
     IF (str_cmp(element, 'eps_n1')) THEN
       IF (got_file) THEN
         CALL load_single_array_from_file(filename, eps_n1, offset, errcode)
@@ -309,7 +311,7 @@ CONTAINS
 
         CALL set_tokenizer_stagger(c_stagger_centre)
         CALL evaluate_string_in_space(value, eps_n1, &
-               1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          1-ng, nx+ng, 1-ng, ny+ng, errcode)
       END IF
       RETURN
     END IF
@@ -323,7 +325,7 @@ CONTAINS
 
         CALL set_tokenizer_stagger(c_stagger_centre)
         CALL evaluate_string_in_space(value, eps_n2, &
-             1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          1-ng, nx+ng, 1-ng, ny+ng, errcode)
       END IF
       RETURN
     END IF
@@ -337,7 +339,7 @@ CONTAINS
 
         CALL set_tokenizer_stagger(c_stagger_centre)
         CALL evaluate_string_in_space(value, eps3, &
-            1-ng, nx+ng, 1-ng, ny+ng, errcode)
+          1-ng, nx+ng, 1-ng, ny+ng, errcode)
       END IF
       RETURN
     END IF
@@ -363,12 +365,29 @@ CONTAINS
       global_e(1) = as_real_print(value, element, errcode)
       RETURN
     END IF
+
     IF (str_cmp(element, 'global_ey')) THEN
       global_e(2) = as_real_print(value, element, errcode)
       RETURN
     END IF
+
     IF (str_cmp(element, 'global_ez')) THEN
       global_e(3) = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'global_bx')) THEN
+      global_b(1) = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'global_by')) THEN
+      global_b(2) = as_real_print(value, element, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'global_bz')) THEN
+      global_b(3) = as_real_print(value, element, errcode)
       RETURN
     END IF
 #endif

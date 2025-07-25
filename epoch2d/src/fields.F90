@@ -125,7 +125,6 @@ CONTAINS
 
     END IF
 #endif
-
 #ifdef CONSTEPS
     IF      (use_eps_n1n2) THEN
 
@@ -141,6 +140,7 @@ CONTAINS
 
     END IF
 #endif
+
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
         DO iy = 0, ny
@@ -463,6 +463,8 @@ CONTAINS
 
   END SUBROUTINE update_eps3
 
+
+
   SUBROUTINE spatial_average_eps
 
     INTEGER :: ix, iy
@@ -528,12 +530,22 @@ CONTAINS
     END DO
 
   END SUBROUTINE update_e_field_eps
+!end CONSTEPS
+#endif
+#ifdef NEWPML
+
+
 
   SUBROUTINE update_e_field_newpml
 
     INTEGER :: ix, iy
     REAL(num) :: ciex, ciey, ciez
     REAL(num) :: ceye, cinv
+
+#ifndef CONSTEPS
+    PRINT '(A)', "NEWPML requires CONSTEPS"
+    CALL abort_code(c_err_bad_setup)
+#endif!CONSTEPS
 
     IF (field_order /= 2) THEN
       PRINT '(A)', "NEWPML is only implemented for yee, field_order == 2"
@@ -609,6 +621,13 @@ CONTAINS
     REAL(num) :: cx1, cx2, cx3
     REAL(num) :: cy1, cy2, cy3
 
+#ifdef NEWPML
+    IF (use_newpml) THEN
+      CALL update_b_field_newpml
+      RETURN
+    END IF
+    
+#endif
     IF (cpml_boundaries) THEN
       IF (field_order == 2) THEN
         IF (maxwell_solver == c_maxwell_solver_yee) THEN
@@ -833,6 +852,52 @@ CONTAINS
     END IF
 
   END SUBROUTINE update_b_field
+#ifdef NEWPML
+
+
+
+  SUBROUTINE update_b_field_newpml
+
+    INTEGER :: ix, iy
+    REAL(num) :: c1, c2, c3
+    REAL(num) :: cimx, cimy, cimz
+    REAL(num) :: ceye, cinv
+
+    !never say never
+    cimx = 1.0_num
+    cimy = 1.0_num
+    cimz = 1.0_num
+#ifndef CONSTEPS
+    PRINT '(A)', "NEWPML requires CONSTEPS"
+    CALL abort_code(c_err_bad_setup)
+#endif!CONSTEPS
+
+    IF (field_order /= 2 &
+         .OR. maxwell_solver /= c_maxwell_solver_yee) THEN
+      PRINT '(A)', "NEWPML is only implemented for yee, field_order == 2"
+      CALL abort_code(c_err_bad_setup)
+    END IF
+    
+    DO iy = 0, ny
+    DO ix = 0, nx
+
+      ceye = pml_eye(ix,iy)
+      cinv = pml_inv(ix,iy)
+      
+      bx(ix, iy) = bx(ix, iy)*ceye &
+          - cimx * hdty * (ez(ix  , iy+1) - ez(ix  , iy))
+
+      by(ix, iy) = by(ix, iy)*ceye &
+          + cimy * hdtx * (ez(ix+1, iy  ) - ez(ix  , iy))
+
+      bz(ix, iy) = bz(ix, iy)*ceye &
+          - cimz * hdtx * (ey(ix+1, iy  ) - ey(ix  , iy)) &
+          + cimz * hdty * (ex(ix  , iy+1) - ex(ix  , iy))
+    END DO
+    END DO
+
+  END SUBROUTINE update_b_field_newpml
+#endif!NEWPML
 
 
 

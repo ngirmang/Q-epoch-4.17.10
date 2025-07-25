@@ -58,7 +58,10 @@ PROGRAM pic
 #ifdef NEWPML
   USE boundary
 #endif
-  
+#ifdef MEDIUM
+  USE media
+#endif
+
   IMPLICIT NONE
 
   INTEGER :: ispecies, ierr
@@ -132,6 +135,9 @@ PROGRAM pic
 #ifdef NEWPML
   !curse this
   CALL set_newpml
+#endif
+#ifdef MEDIUM
+  CALL initialise_media
 #endif
 #ifdef PERFMON
   CALL timer_perf_init
@@ -238,6 +244,18 @@ PROGRAM pic
           END IF
         END IF
 
+#ifdef MEDIUM
+        CALL ionise_media
+
+        IF ( step > 0 .AND. MOD(step, media_prod_freq) == 0 ) &
+            CALL media_particle_production
+#endif
+! #ifdef MERGE_PARTICLES
+!         IF (merge_nsteps > 0 .AND. &
+!             (MOD(step, merge_nsteps) == 0 &
+!             .AND. step <= merge_max_nstep)) &
+!              CALL merge_particles
+! #endif
         ! Early beta version of particle splitting operator
         IF (use_split) CALL split_particles
 

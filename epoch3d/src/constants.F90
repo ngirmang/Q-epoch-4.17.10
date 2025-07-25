@@ -585,19 +585,25 @@ MODULE constants
   INTEGER, PARAMETER :: c_dump_part_work_y_total = 69
   INTEGER, PARAMETER :: c_dump_part_work_z_total = 70
   INTEGER, PARAMETER :: c_dump_part_opdepth_brem = 71
-#ifdef BOUND_HARMONIC
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
   INTEGER, PARAMETER :: c_dump_part_ix           = 72
   INTEGER, PARAMETER :: c_dump_part_iy           = 73
   INTEGER, PARAMETER :: c_dump_part_iz           = 74
-  INTEGER, PARAMETER :: num_vars_to_dump         = 74
+  INTEGER, PARAMETER :: c_dump_part_pos_z        = 75
+  INTEGER, PARAMETER :: c_dump_eps_x             = 76
+  INTEGER, PARAMETER :: c_dump_eps_y             = 77
+  INTEGER, PARAMETER :: c_dump_eps_z             = 78
+  INTEGER, PARAMETER :: c_dump_eps3              = 79
+  INTEGER, PARAMETER :: c_dump_n2                = 80
+#ifdef MEDIUM
+  INTEGER, PARAMETER :: c_dump_medium_density    = 81
+  INTEGER, PARAMETER :: num_vars_to_dump         = 81
+#else
+  INTEGER, PARAMETER :: num_vars_to_dump         = 80
+#endif
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 71
 #endif
-!#ifdef CONSTEPS
-! INTEGER, PARAMETER :: c_epsmode_bycell  = 1
-! INTEGER, PARAMETER :: c_epsmode_explicit= 2
-!
-!#endif
   
   INTEGER, PARAMETER :: c_subset_random     = 1
   INTEGER, PARAMETER :: c_subset_gamma_min  = 2

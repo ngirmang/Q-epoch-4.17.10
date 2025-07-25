@@ -431,6 +431,10 @@ CONTAINS
       species_list(ispecies)%bfield_sample_factor = 1.0_num
       species_list(ispecies)%dir_nparts = 0
 #endif
+#ifdef NONLIN
+      species_list(ispecies)%nl_alpha3 = 0.0_num
+      species_list(ispecies)%linear_factor = 1.0_num
+#endif
     END DO
 
     DO ispecies = 1, n_species
@@ -692,11 +696,29 @@ CONTAINS
     jy = 0.0_num
     jz = 0.0_num
 
-#ifdef CONSTEPS
-    iepsx = 1.0_num
-    iepsy = 1.0_num
-    iepsz = 1.0_num
-    
+#if defined(CONSTEPS) || defined(MEDIUM)
+    IF (.NOT. eps_stored) THEN
+      iepsx = 1.0_num
+      iepsy = 1.0_num
+      iepsz = 1.0_num
+    ELSE
+      epsx = 1.0_num
+      epsy = 1.0_num
+      epsz = 1.0_num
+      IF (use_eps_n1n2) THEN
+        eps_n1 = 1.0_num
+        eps_n2 = 0.0_num
+      ELSE IF (use_eps3) THEN
+        eps0x= 1.0_num
+        eps0y= 1.0_num
+        eps0z= 1.0_num
+
+        eps3 = 0.0_num
+      END IF
+    END IF
+#ifdef MEDIUM
+    IF (n_media > 1) media_density = 0.0_num
+#endif
 #endif
     ! Set up random number seed
     seed = 7842432
@@ -986,6 +1008,9 @@ CONTAINS
     INTEGER, POINTER :: species_subtypes(:)
     INTEGER, POINTER :: species_subtypes_i4(:), species_subtypes_i8(:)
     REAL(num) :: offset_x_min, full_x_min, offset_x_max
+#ifdef MEDIUM
+    INTEGER :: n
+#endif
 
     got_full = .FALSE.
     npart_global = 0
@@ -1484,6 +1509,16 @@ CONTAINS
         ELSE IF (str_cmp(block_id, 'cpml_psi_byz')) THEN
           CALL sdf_read_plain_variable(sdf_handle, cpml_psi_byz, &
               subtype_field, subarray_field)
+#ifdef MEDIUM
+
+        ELSE IF (block_id(1:15) == 'medium_density/') THEN
+          CALL find_species_by_blockid(block_id, ispecies)
+          IF (ispecies == 0) CYCLE
+          n=species_list(ispecies)%medium_index
+          IF (n <= 0) CYCLE
+          CALL sdf_read_plain_variable(sdf_handle, media_density(:,:,:,n), &
+               subtype_field, subarray_field)
+#endif
 
         END IF
 

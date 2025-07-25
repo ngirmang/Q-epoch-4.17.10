@@ -152,11 +152,14 @@ CONTAINS
       CALL shift_field(eps3, ng)
     END IF
 
+#ifdef MEDIUM
     IF (n_media > 0) THEN
       DO n = 1, n_media
         CALL shift_field(media_density(:,:,n), ng)
       END DO
     END IF
+#endif
+! if defined CONSTEPS or MEDIUM
 #endif
     
     IF (x_max_boundary) THEN
@@ -190,8 +193,8 @@ CONTAINS
           cpml_psi_bzy(nx:nx+1,j) = cpml_psi_bzy(nx,j)
         END DO
       END IF
-#ifdef CONSTEPS
-      
+#if defined(CONSTEPS) || defined(MEDIUM)
+
       ! set the epsilon of the incoming cell
 
       CALL set_tokenizer_stagger(c_stagger_centre)
@@ -218,6 +221,8 @@ CONTAINS
       ELSE ! use dielectric model
         vex = 1.0_num ; vey = 1.0_num ; vez = 1.0_num
         DO j = 1-ng, ny+ng
+          parameters%pack_iy = j
+
           IF (epsx_func%init) &
                vex = evaluate_with_parameters(epsx_func, parameters, errcode)
           IF (epsy_func%init) &
@@ -239,12 +244,14 @@ CONTAINS
         END DO
       END IF
 
+#ifdef MEDIUM
       ! handle media
       IF (n_media > 0) THEN
         media: DO n = 1, n_media
           species = media_list(n)%species
           IF (.NOT. species_list(species)%density_function%init) THEN
-            media_density(nx:nx+1,j,n) = 0.0_num
+            media_density(nx:nx+1,:,n) = 0.0_num
+            CYCLE media
           END IF
 
           DO j = 1-ng, ny+ng
@@ -257,7 +264,7 @@ CONTAINS
           END DO
         END DO media
       END IF
-
+#endif
 !end CONSTEPS or MEDIUM
 #endif
     END IF

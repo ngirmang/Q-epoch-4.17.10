@@ -23,7 +23,7 @@ MODULE collisions
 #ifdef PREFETCH
   USE prefetch
 #endif
-#ifdef BOUND_HARMONIC
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
   use ionise
 #endif
 
@@ -521,7 +521,7 @@ CONTAINS
 
 
 #ifndef PER_SPECIES_WEIGHT
-#ifdef BOUND_HARMONIC
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
   SUBROUTINE preionise(electrons, ions, ionised, ionising_e, &
       ejected_e, e_mass, ion_mass, e_charge, ion_charge, e_dens, &
       full_ion_charge, ionisation_energy, n1, n2, l, ionspecies)
@@ -539,7 +539,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: n1, n2, l
 
-#ifdef BOUND_HARMONIC
+#if defined(BOUND_HARMONIC) || defined(CONSTEPS)
     INTEGER, INTENT(IN) :: ionspecies
 
     INTEGER :: irelease, inext

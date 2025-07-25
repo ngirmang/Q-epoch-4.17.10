@@ -412,8 +412,10 @@ CONTAINS
         ALLOCATE(eps3(1-ng:nx+ng, 1-ng:ny+ng))
       END IF
     END IF
+#ifdef MEDIUM
     IF (n_media > 0) &
-         ALLOCATE(media_density(1-ng:nx+ng, 1-ng:ny+ng, n_media))
+      ALLOCATE(media_density(1-ng:nx+ng, 1-ng:ny+ng, n_media))
+#endif
 !end CONSTEPS or MEDIUM
 #endif
 

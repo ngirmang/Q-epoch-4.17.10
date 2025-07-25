@@ -525,9 +525,7 @@ MODULE shared_data
   REAL(num) :: eps_a1 = 0.75_num
   LOGICAL :: eps_stored = .FALSE.
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: eps_temp
-  REAL(num), ALLOCATABLE, DIMENSION(:,:) :: medium_factor
-  INTEGER :: medium_eps_mode = -1
-!CONSTEPS
+!end CONSTEPS
 #endif
 #ifdef NEWPML
   REAL(num) pml_thickness_real(6)
@@ -538,6 +536,7 @@ MODULE shared_data
 #endif!NEWPML
 #ifdef GLOBALFIELD
   REAL(num) :: global_e(3) = 0.0_num
+  REAL(num) :: global_b(3) = 0.0_num
 #endif
 #ifdef MEDIUM
 

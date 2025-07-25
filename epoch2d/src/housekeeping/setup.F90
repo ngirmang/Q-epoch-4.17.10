@@ -653,7 +653,9 @@ CONTAINS
         eps3 = 0.0_num
       END IF
     END IF
+#ifdef MEDIUM
     IF (n_media > 1) media_density = 0.0_num
+#endif
 #endif
     ! Set up random number seed
     seed = 7842432
@@ -1389,8 +1391,8 @@ CONTAINS
         ELSE IF (str_cmp(block_id, 'cpml_psi_bzy')) THEN
           CALL sdf_read_plain_variable(sdf_handle, cpml_psi_bzy, &
               subtype_field, subarray_field)
-
 #ifdef MEDIUM
+
         ELSE IF (block_id(1:15) == 'medium_density/') THEN
           CALL find_species_by_blockid(block_id, ispecies)
           IF (ispecies == 0) CYCLE

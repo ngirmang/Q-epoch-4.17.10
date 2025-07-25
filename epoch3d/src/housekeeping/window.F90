@@ -106,6 +106,11 @@ CONTAINS
   SUBROUTINE shift_fields
 
     INTEGER :: j, k
+#if defined(CONSTEPS) || defined(MEDIUM)
+    INTEGER :: n, species, errcode
+    TYPE(parameter_pack) :: parameters
+    REAL(num) :: vex,vey,vez
+#endif
 
     CALL shift_field(ex, ng)
     CALL shift_field(ey, ng)
@@ -135,6 +140,32 @@ CONTAINS
       CALL shift_field(cpml_psi_bxz, ng)
       CALL shift_field(cpml_psi_byz, ng)
     END IF
+
+#if defined(CONSTEPS) || defined(MEDIUM)
+    IF (.NOT. eps_stored) THEN
+      CALL shift_field(iepsx, ng)
+      CALL shift_field(iepsy, ng)
+      CALL shift_field(iepsz, ng)
+    ELSE IF (use_eps_n1n2) THEN
+      CALL shift_field(eps_n1, ng)
+      CALL shift_field(eps_n2, ng)
+    ELSE IF (use_eps3) THEN
+      CALL shift_field(eps0x, ng)
+      CALL shift_field(eps0y, ng)
+      CALL shift_field(eps0z, ng)
+
+      CALL shift_field(eps3, ng)
+    END IF
+
+#ifdef MEDIUM
+    IF (n_media > 0) THEN
+      DO n = 1, n_media
+        CALL shift_field(media_density(:,:,:,n), ng)
+      END DO
+    END IF
+#endif
+! if defined CONSTEPS or MEDIUM
+#endif
 
     IF (x_max_boundary) THEN
       DO k = 1-ng, nz+ng
@@ -176,6 +207,92 @@ CONTAINS
           END DO
         END DO
       END IF
+#if defined(CONSTEPS) || defined(MEDIUM)
+
+      ! set the epsilon of the incoming cell
+
+      CALL set_tokenizer_stagger(c_stagger_centre)
+      parameters%pack_ix = nx
+
+      ! change to order of loops for efficiency
+      IF (use_eps_n1n2) THEN
+
+        IF (eps_n2_func%init) THEN
+          DO k = 1-ng, nz+ng
+            parameters%pack_iz = k
+          DO j = 1-ng, ny+ng
+            parameters%pack_iy = j
+            vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)
+            vey = evaluate_with_parameters(eps_n2_func, parameters, errcode)
+            eps_n1(nx:nx+1,j,k) = vex
+            eps_n2(nx:nx+1,j,k) = vey
+          END DO
+          END DO
+        ELSE
+          DO k = 1-ng, nz+ng
+            parameters%pack_iz = k
+          DO j = 1-ng, ny+ng
+            parameters%pack_iy = j
+            vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)
+            eps_n1(nx:nx+1,j,k) = vex
+          END DO
+          END DO
+        END IF
+      ELSE ! use dielectric model
+        vex = 1.0_num ; vey = 1.0_num ; vez = 1.0_num
+        DO k = 1-ng, nz+ng
+          parameters%pack_iz = k
+        DO j = 1-ng, ny+ng
+          parameters%pack_iy = j
+
+          IF (epsx_func%init) &
+               vex = evaluate_with_parameters(epsx_func, parameters, errcode)
+          IF (epsy_func%init) &
+               vey = evaluate_with_parameters(epsy_func, parameters, errcode)
+          IF (epsz_func%init) &
+               vez = evaluate_with_parameters(epsz_func, parameters, errcode)
+          IF (eps_stored) THEN
+            eps0x(nx:nx+1,j,k) = vex
+            eps0y(nx:nx+1,j,k) = vey
+            eps0z(nx:nx+1,j,k) = vez
+
+            vex = evaluate_with_parameters(eps3_func, parameters, errcode)
+            eps3(nx:nx+1,j,k) = vex
+          ELSE
+            iepsx(nx:nx+1,j,k) = 1.0_num / vex
+            iepsy(nx+1,j,k)    = 1.0_num / vey
+            iepsz(nx+1,j,k)    = 1.0_num / vez
+          END IF
+        END DO
+        END DO
+      END IF
+
+#ifdef MEDIUM
+      ! handle media
+      IF (n_media > 0) THEN
+        media: DO n = 1, n_media
+          species = media_list(n)%species
+          IF (.NOT. species_list(species)%density_function%init) THEN
+            media_density(nx:nx+1,:,:,n) = 0.0_num
+            CYCLE media
+          END IF
+
+          DO k = 1-ng, nz+ng
+            parameters%pack_iz = k
+          DO j = 1-ng, ny+ng
+            parameters%pack_iy = j
+            vex = evaluate_with_parameters( &
+              species_list(species)%density_function, &
+              parameters, errcode)
+
+            media_density(nx:nx+1,j,k,n) = vex
+          END DO
+          END DO
+        END DO media
+      END IF
+#endif
+!end CONSTEPS or MEDIUM
+#endif
     END IF
 
   END SUBROUTINE shift_fields

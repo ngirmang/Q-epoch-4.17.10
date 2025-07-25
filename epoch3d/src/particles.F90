@@ -435,8 +435,17 @@ CONTAINS
 #include "triangle/e_part.inc"
 #include "triangle/b_part.inc"
 #endif
-        
-! update particle momenta using weighted fields
+
+#ifdef GLOBALFIELD
+        ex_part = ex_part + global_e(1)
+        ey_part = ey_part + global_e(2)
+        ez_part = ez_part + global_e(3)
+
+        bx_part = bx_part + global_b(1)
+        by_part = by_part + global_b(2)
+        bz_part = bz_part + global_b(3)
+#endif
+        ! update particle momenta using weighted fields
 #if defined(BOUND_HARMONIC) && defined(NONLIN)
         uxm = part_ux + cmratio * ex_part * elinfac
         uym = part_uy + cmratio * ey_part * elinfac
@@ -784,9 +793,9 @@ CONTAINS
     TYPE(particle), POINTER :: current
     REAL(num), DIMENSION(3) :: omega, gamma, dlx, part_u, maxd
     REAL(num) part_m
-
-    IF (check_bound_interval == 0 &
-        .OR. MOD(step, check_bound_interval) > 0) RETURN
+    
+    IF (check_bound_interval == 0 ) RETURN
+    IF (step == 0 .OR. MOD(step, check_bound_interval) > 0) RETURN
     IF (rank == 0) PRINT "(A,I6.6)", "checking bound at step = ", step
     
     maxd = (/dx, dy, dz/) / bound_safe_factor

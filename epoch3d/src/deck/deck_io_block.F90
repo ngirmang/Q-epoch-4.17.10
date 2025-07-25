@@ -640,6 +640,10 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'number_density')) THEN
       elementselected = c_dump_number_density
+#ifdef MEDIUM
+    ELSE IF (str_cmp(element, 'medium_density')) THEN
+      elementselected = c_dump_medium_density
+#endif
 
     ELSE IF (str_cmp(element, 'ppc') &
         .OR. str_cmp(element, 'particles_per_cell')) THEN
@@ -733,6 +737,22 @@ CONTAINS
 
     ELSE IF (str_cmp(element, 'total_energy_sum')) THEN
       elementselected = c_dump_total_energy_sum
+#ifdef CONSTEPS
+    ELSE IF (str_cmp(element, 'epsx') .AND. eps_stored) THEN
+      elementselected = c_dump_eps_x
+
+    ELSE IF (str_cmp(element, 'epsy') .AND. eps_stored) THEN
+      elementselected = c_dump_eps_y
+
+    ELSE IF (str_cmp(element, 'epsz') .AND. eps_stored) THEN
+      elementselected = c_dump_eps_z
+
+    ELSE IF (str_cmp(element, 'eps3') .AND. use_eps3)   THEN
+      elementselected = c_dump_eps3
+
+    ELSE IF (str_cmp(element, 'eps_n2') .AND. use_eps_n1n2)   THEN
+      elementselected = c_dump_n2
+#endif
 
     ELSE
       got_element = .FALSE.
@@ -853,6 +873,10 @@ CONTAINS
         IF (mask_element == c_dump_jy) bad = .FALSE.
         IF (mask_element == c_dump_jz) bad = .FALSE.
         IF (mask_element == c_dump_total_energy_sum) bad = .FALSE.
+#ifdef MEDIUM
+        IF (mask_element == c_dump_medium_density) bad = .FALSE.
+#endif
+
         IF (bad) THEN
           IF (rank == 0 .AND. IAND(mask, c_io_species) /= 0) THEN
             DO iu = 1, nio_units ! Print to stdout and to file
@@ -1157,6 +1181,22 @@ CONTAINS
         IOR(io_block%dumpmask(c_dump_part_iy), c_io_restartable)
     io_block%dumpmask(c_dump_part_iz) = &
         IOR(io_block%dumpmask(c_dump_part_iz), c_io_restartable)
+#endif
+#ifdef CONSTEPS
+    io_block%dumpmask(c_dump_eps_x) = &
+        IOR(io_block%dumpmask(c_dump_eps_x), c_io_restartable)
+    io_block%dumpmask(c_dump_eps_y) = &
+        IOR(io_block%dumpmask(c_dump_eps_y), c_io_restartable)
+    io_block%dumpmask(c_dump_eps_z) = &
+        IOR(io_block%dumpmask(c_dump_eps_z), c_io_restartable)
+    io_block%dumpmask(c_dump_eps3) = &
+        IOR(io_block%dumpmask(c_dump_eps3), c_io_restartable)
+    io_block%dumpmask(c_dump_n2) = &
+        IOR(io_block%dumpmask(c_dump_n2), c_io_restartable)
+#endif
+#ifdef MEDIUM
+    io_block%dumpmask(c_dump_medium_density) = &
+        IOR(io_block%dumpmask(c_dump_medium_density), c_io_restartable)
 #endif
 
   END SUBROUTINE set_restart_dumpmasks
