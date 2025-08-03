@@ -64,6 +64,19 @@ CONTAINS
     crossB(3,2) =-ibx
   END FUNCTION crossB
 #endif
+#ifdef EXTPARTFIELD
+  SUBROUTINE set_extpart_param(param, part_x, part_y)
+
+    TYPE(parameter_pack), INTENT(INOUT) :: param
+    REAL(num), INTENT(IN) :: part_x, part_y, part_z
+
+    param%use_grid_position = .FALSE.
+    param%pack_pos(1) = part_x + x_grid_min_local
+    param%pack_pos(2) = part_y + y_grid_min_local
+  END SUBROUTINE set_extpart_param
+#endif
+
+
   
   SUBROUTINE push_particles
 
@@ -194,8 +207,14 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-    
     TYPE(particle), POINTER :: current, next
+#ifdef EXTPARTFIELD
+    TYPE(parameter_pack) :: param
+    INTEGER :: ierr
+    LOGICAL :: extpart_printed
+    REAL(num) :: extpart_tmp
+    extpart_printed = .FALSE.
+#endif
 
 #ifdef PREFETCH
     CALL prefetch_particle(species_list(1)%attached_list%head)
@@ -415,6 +434,25 @@ CONTAINS
 #include "triangle/b_part.inc"
 #endif
 
+#ifdef EXTPARTFIELD
+        CALL set_extpart_param(param, part_x, part_y)
+        IF (extpart_ex%init) &
+          ex_part = ex_part + evaluate_with_parameters(extpart_ex, param, ierr)
+        IF (extpart_ey%init) THEN
+          extpart_tmp = evaluate_with_parameters(extpart_ey, param, ierr)
+          ey_part = ey_part + extpart_tmp
+        END IF
+        IF (extpart_ez%init) &
+          ez_part = ez_part + evaluate_with_parameters(extpart_ez, param, ierr)
+
+        IF (extpart_bx%init) &
+          bx_part = bx_part + evaluate_with_parameters(extpart_bx, param, ierr)
+        IF (extpart_by%init) &
+          by_part = by_part + evaluate_with_parameters(extpart_by, param, ierr)
+        IF (extpart_bz%init) &
+          bz_part = bz_part + evaluate_with_parameters(extpart_bz, param, ierr)
+!end EXTPARTFIELD
+#endif
 #ifdef GLOBALFIELD
         ex_part = ex_part + global_e(1)
         ey_part = ey_part + global_e(2)

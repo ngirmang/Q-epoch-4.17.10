@@ -835,7 +835,6 @@ nelp:     DO ne=1,nelec
           ! if not per coll, we merge the new electrons into nmax_create
           !IF (new_e_plist%count > 0) PRINT '("<<", I2.2, ">>")', new_e_plist%count
           IF (.NOT. per_coll .AND. new_e_plist%count.GT.nmax_create) THEN
-            PRINT *, " >> coll merge <<"
             CALL simple_merge_plist(nmax_create, new_e_plist)
           END IF
           ncreate_coll_total = ncreate_coll_total + new_e_plist%count

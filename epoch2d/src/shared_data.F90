@@ -538,6 +538,10 @@ MODULE shared_data
   REAL(num) :: global_e(3) = 0.0_num
   REAL(num) :: global_b(3) = 0.0_num
 #endif
+#ifdef EXTPARTFIELD
+  TYPE(primitive_stack), SAVE :: extpart_ex,extpart_ey,extpart_ez
+  TYPE(primitive_stack), SAVE :: extpart_bx,extpart_by,extpart_bz
+#endif
 #ifdef MEDIUM
 
   ! NEW SHIT: medium model, essentially, my particle-less attempt to model long

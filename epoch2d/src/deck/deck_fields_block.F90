@@ -391,7 +391,44 @@ CONTAINS
       RETURN
     END IF
 #endif
-    
+#ifdef EXTPARTFIELD
+    IF (str_cmp(element, 'external_part_ex')) THEN
+      CALL initialise_stack(extpart_ex)
+      CALL tokenize(value, extpart_ex, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'external_part_ey')) THEN
+      CALL initialise_stack(extpart_ey)
+      CALL tokenize(value, extpart_ey, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'external_part_ez')) THEN
+      CALL initialise_stack(extpart_ez)
+      CALL tokenize(value, extpart_ez, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'external_part_bx')) THEN
+      CALL initialise_stack(extpart_bx)
+      CALL tokenize(value, extpart_bx, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'external_part_by')) THEN
+      CALL initialise_stack(extpart_by)
+      CALL tokenize(value, extpart_by, errcode)
+      RETURN
+    END IF
+
+    IF (str_cmp(element, 'external_part_bz')) THEN
+      CALL initialise_stack(extpart_bz)
+      CALL tokenize(value, extpart_bz, errcode)
+      RETURN
+    END IF
+#endif
+
   END FUNCTION fields_block_handle_element
 
 

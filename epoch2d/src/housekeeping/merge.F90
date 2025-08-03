@@ -448,7 +448,7 @@ ncloop:   DO i = 1,ngroup
     INTEGER :: npre_r, nafter_r, ierr, im
     REAL(num) :: avg_energy, avg_v(3), cur_v(3), cur_energy, &
       cell_energy, energy_cut, cell_weight, wid_energy, cur_weight, &
-      energy_fac, pcomp_fac, mass, weight, stddev, &
+      energy_fac, pcomp_fac, mass, weight, stddev, post_cell_weight, &
       cur_pos(3), avg_pos(3), max_energy
     LOGICAL :: keep, remove
     TYPE(particle), POINTER ::  cur, next, repl
@@ -575,6 +575,18 @@ ixlp: DO ix=1,nx
         CALL destroy_partlist(temp_plist)
 
         nafter = nafter + plist%count
+!
+        post_cell_weight = 0
+        cur => plist%head
+        DO i = 1, plist%count
+          post_cell_weight = post_cell_weight + cur%weight
+          cur => cur%next
+        END DO
+
+        PRINT '("rank=",I3.3," (ix,iy)=(",I4.4,",",I4.4,"): ",&
+          &"cell_weight ",ES8.1," -> ",ES8.1)', rank, ix, iy, &
+          cell_weight, post_cell_weight
+!
       END DO ixlp
       END DO
 

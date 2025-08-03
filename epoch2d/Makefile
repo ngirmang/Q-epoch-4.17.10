@@ -70,7 +70,7 @@ endif
 # ========
 ifeq ($(strip $(COMPILER)),gfortran)
   #FFLAGS = -O3 -g -std=f2008
-  FFLAGS = -O0 -g -std=f2008
+  FFLAGS = -O3 -g -std=f2008
 
   GNUVER := $(shell gfortran -dumpversion | head -1 \
       | sed 's/[^0-9\.]*\([0-9\.]\+\).*/\1/')
