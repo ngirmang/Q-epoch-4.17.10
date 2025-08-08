@@ -2575,12 +2575,13 @@ CONTAINS
     ! This is a normal dump and normal output variable
     normal_id = IAND(IAND(code, mask), IOR(c_io_always, c_io_full)) /= 0
 
-    IF (.NOT.normal_id) RETURN
-
     ! If this isn't a medium species, don't proceed.
 
     ! This is a restart dump and a restart variable
     restart_id = IAND(IAND(code, mask), c_io_restartable) /= 0
+
+    IF (.NOT.normal_id .AND. .NOT.restart_id) RETURN
+
     ! The variable is either averaged or has snapshot specified
     unaveraged_id = IAND(mask, c_io_averaged) == 0 &
         .OR. IAND(mask, c_io_snapshot) /= 0
@@ -2599,7 +2600,7 @@ CONTAINS
 
     dump_species = unaveraged_id .AND. IAND(mask, c_io_species) /= 0
 
-    IF (.NOT. dump_species) RETURN
+    IF (.NOT. dump_species .AND. .NOT. restart_id) RETURN
 
     IF (isubset == 1) THEN
       dump_skipped = .FALSE.
