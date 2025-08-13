@@ -70,16 +70,6 @@ MODULE deck_species_block
   INTEGER,   DIMENSION(:), POINTER :: i_bound_partners
 
 #endif
-#ifdef MERGE_PARTICLES
-  LOGICAL :: species_merge
-  LOGICAL, DIMENSION(:), POINTER :: merges
-  REAL(num) :: species_en_sig, species_pc_sig
-  REAL(num), DIMENSION(:), POINTER :: en_sigs, pc_sigs
-  INTEGER :: species_max_nppc
-  INTEGER, DIMENSION(:), POINTER :: max_nppcs
-  INTEGER :: species_merge_start
-  INTEGER, DIMENSION(:), POINTER :: merge_starts
-#endif
 
   INTEGER, DIMENSION(2*c_ndims) :: species_bc_particle
 
@@ -117,13 +107,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef MERGE_PARTICLES
-      ALLOCATE(merges(4))
-      ALLOCATE(en_sigs(4))
-      ALLOCATE(pc_sigs(4))
-      ALLOCATE(max_nppcs(4))
-      ALLOCATE(merge_starts(4))
 #endif
       release_species = ''
     END IF
@@ -178,11 +161,6 @@ CONTAINS
 !end BOUND_HARMONIC
 #endif
 #ifdef MERGE_PARTICLES
-        species_list(i)%merge = merges(i)
-        species_list(i)%merge_max_energy_sig = en_sigs(i)
-        species_list(i)%merge_max_pcomp_sig = pc_sigs(i)
-        species_list(i)%merge_max_particles = max_nppcs(i)
-        species_list(i)%merge_start = merge_starts(i)
         IF (species_list(i)%merge .AND. &
             species_list(i)%merge_start == 0) THEN
           species_list(i)%merge_start = &
@@ -226,13 +204,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef MERGE_PARTICLES
-      DEALLOCATE(merges)
-      DEALLOCATE(en_sigs)
-      DEALLOCATE(pc_sigs)
-      DEALLOCATE(max_nppcs)
-      DEALLOCATE(merge_starts)
 #endif
 
       DO i = 1, n_species
@@ -412,13 +383,6 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef MERGE_PARTICLES
-    species_merge = .FALSE.
-    species_en_sig = 2.0_num
-    species_pc_sig = 2.0_num
-    species_max_nppc=2000000000
-    species_merge_start = 0
-#endif
 
   END SUBROUTINE species_block_start
 
@@ -466,18 +430,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef MERGE_PARTICLES
-      merges(n_species) = species_merge
-      species_merge = .FALSE.
-      en_sigs(n_species) = species_en_sig 
-      species_en_sig = 2.0_num
-      pc_sigs(n_species) = species_pc_sig
-      species_pc_sig = 2.0_num
-      max_nppcs(n_species) = species_max_nppc
-      species_max_nppc = 2000000000
-      merge_starts(n_species) = species_merge_start
-      species_merge_start = 0
 #endif
       IF (n_secondary_species_in_block > 0) THEN
         ! Create an empty species for each ionisation energy listed in species
@@ -735,6 +687,11 @@ CONTAINS
     IF (str_cmp(element, 'merge_energy_cutoff')) THEN
       species_list(species_id)%merge_energy_cut = &
            as_real_print(value, element, errcode)
+      RETURN
+    END IF
+    IF (str_cmp(element, 'merge_end_nstep')) THEN
+      species_list(species_id)%merge_end_nstep = &
+           as_integer_print(value, element, errcode)
       RETURN
     END IF
 #endif
@@ -1544,13 +1501,6 @@ CONTAINS
 #endif
 !end BOUND_HARMONIC
 #endif
-#ifdef MERGE_PARTICLES
-    CALL grow_array(merges, n_species)
-    CALL grow_array(en_sigs, n_species)
-    CALL grow_array(pc_sigs, n_species)
-    CALL grow_array(max_nppcs, n_species)
-    CALL grow_array(merge_starts, n_species)
-#endif
 
     species_names(n_species) = TRIM(name)
     ionise_to_species(n_species) = -1
@@ -1573,13 +1523,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef MERGE_PARTICLES
-    merges(n_species) = .FALSE.
-    en_sigs(n_species) = 2.0_num
-    pc_sigs(n_species) = 2.0_num
-    max_nppcs(n_species)= 2000000000
-    merge_starts(n_species) = 0
 #endif
 
     RETURN
@@ -1657,18 +1600,6 @@ CONTAINS
 !end NONLIN
 #endif
 !end BOUND_HARMONIC
-#endif
-#ifdef MERGE_PARTICLES
-    CALL grow_array(merges,n_species)
-    merges(n_species) = .FALSE.
-    CALL grow_array(en_sigs,n_species)
-    en_sigs(n_species) = 2.0_num
-    CALL grow_array(pc_sigs,n_species)
-    pc_sigs(n_species) = 2.0_num
-    CALL grow_array(max_nppcs,n_species)
-    max_nppcs(n_species) = 2000000000
-    CALL grow_array(merge_starts,n_species)
-    merge_starts(n_species) = 0
 #endif
 
     RETURN

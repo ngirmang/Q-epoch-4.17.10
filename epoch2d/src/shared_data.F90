@@ -277,6 +277,7 @@ MODULE shared_data
     REAL(num) :: merge_max_pcomp_sig =  2.0_num
     INTEGER :: merge_start = 0
     REAL(num) :: merge_energy_cut = HUGE(1.0_num)
+    INTEGER :: merge_end_nstep = HUGE(1)
 #endif
 
     ! Specify if species is background species or not

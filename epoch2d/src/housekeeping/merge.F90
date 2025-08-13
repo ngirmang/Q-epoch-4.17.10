@@ -457,6 +457,7 @@ ncloop:   DO i = 1,ngroup
 
     INTEGER :: ncells, ncells_r, ndiffcells, ndiffcells_r, ndiffs
     INTEGER :: ncurdiff
+    INTEGER :: merge_end_nstep
     REAL(num) :: avg_ppc_bef, avg_ppc_aft, &
       sum_mean, sum_mean_r, avg_mean, &
       sum_mean_max_spread, sum_mean_max_spread_r, avg_mean_max_spread, &
@@ -475,6 +476,13 @@ isp:DO ispecies=1,n_species
       mass = species_list(ispecies)%mass
       nmerge_start = species_list(ispecies)%merge_start
       energy_cut = species_list(ispecies)%merge_energy_cut
+      merge_end_nstep = species_list(ispecies)%merge_end_nstep
+
+      IF (step .GT. merge_end_nstep) THEN
+        IF (rank == 0) PRINT '("skipping merge for ", A12)', &
+          species_list(ispecies)%name
+        CYCLE isp
+      END IF
 
       npre = 0 ; nafter = 0
 
