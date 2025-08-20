@@ -360,17 +360,33 @@ CONTAINS
   END FUNCTION lowercase
 
 
+  ! old version with different signature that is broken...
+  ! FUNCTION trim_string(string)
+  !
+  !   CHARACTER(LEN=c_max_string_length) :: trim_string
+  !   CHARACTER(LEN=*) :: string
+  !
+  !   string = ADJUSTL(string)
+  !   IF (LEN_TRIM(string) > c_max_string_length) THEN
+  !     trim_string = string(1:c_max_string_length)
+  !   ELSE
+  !     trim_string = TRIM(string)
+  !   END IF
+  !
+  ! END FUNCTION trim_string
 
   FUNCTION trim_string(string)
 
+    CHARACTER(LEN=*), INTENT(IN) :: string
     CHARACTER(LEN=c_max_string_length) :: trim_string
-    CHARACTER(LEN=*) :: string
 
-    string = ADJUSTL(string)
-    IF (LEN_TRIM(string) > c_max_string_length) THEN
-      trim_string = string(1:c_max_string_length)
+    CHARACTER(LEN=LEN(string)) :: tmp
+
+    tmp = ADJUSTL(string)
+    IF (LEN_TRIM(tmp) > c_max_string_length) THEN
+      trim_string = tmp(1:c_max_string_length)
     ELSE
-      trim_string = TRIM(string)
+      trim_string = TRIM(tmp)
     END IF
 
   END FUNCTION trim_string

@@ -695,7 +695,32 @@ CONTAINS
       RETURN
     END IF
 #endif
+#ifdef QUANTUM_NUMS
+    ! this is explicitly done in the last deck parsing call to overwrite principle
+    ! and orbital quantum numbers that might be allocated by
+    ! `create_ionisation_species_from_name` below.
+    IF (str_cmp(element, 'quantum_n')) THEN
+      n = as_integer_print(value, element, errcode)
+      IF (rank == 0) THEN
+        PRINT '("warning: overwriting the principle quantum number")'
+        PRINT '("  for the species ", A30)', ADJUSTL(species_list(species_id)%name)
+        PRINT '("  from ",I4," to ",I4)', species_list(species_id)%n, n
+      END IF
+      species_list(species_id)%n = n
+      RETURN
+    END IF
 
+    IF (str_cmp(element, 'quantum_l')) THEN
+      n = as_integer_print(value, element, errcode)
+      IF (rank == 0) THEN
+        PRINT '("warning: overwriting the OAM quantum number")'
+        PRINT '("  for the species ", A30)', ADJUSTL(species_list(species_id)%name)
+        PRINT '("  from ",I4," to ",I4)', species_list(species_id)%l, n
+      END IF
+      species_list(species_id)%l = n
+      RETURN
+    END IF
+#endif
     ! This sets up whether or not to use the MJ sampler for a species.
     ! It could go in the first deck pass, but that requires more temporary
     ! variables and seems unnecessary
