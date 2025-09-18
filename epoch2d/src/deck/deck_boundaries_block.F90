@@ -185,6 +185,12 @@ CONTAINS
     ELSE IF (str_cmp(element, 'newpml_coeff_m')) THEN
       newpml_coeff_m = as_real_print(value, element, errcode)
 
+    ELSE IF (str_cmp(element, 'newpml_plateau_xmax')) THEN
+      use_newpml_plateau_xmax = as_logical_print(value, element, errcode)
+
+    ELSE IF (str_cmp(element, 'newpml_plateau_cells')) THEN
+      newpml_plateau_cells = as_integer_print(value, element, errcode)
+
 #endif!NEWPML
     ELSE
       errcode = c_err_unknown_element

@@ -694,6 +694,11 @@ CONTAINS
            as_integer_print(value, element, errcode)
       RETURN
     END IF
+    IF (str_cmp(element, 'merge_start_nstep')) THEN
+      species_list(species_id)%merge_start_nstep = &
+           as_integer_print(value, element, errcode)
+      RETURN
+    END IF
 #endif
 #ifdef QUANTUM_NUMS
     ! this is explicitly done in the last deck parsing call to overwrite principle

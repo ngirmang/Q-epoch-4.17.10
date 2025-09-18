@@ -435,6 +435,7 @@ ncloop:   DO i = 1,ngroup
         PRINT '("          avgs: ", F6.3,"->",F6.3)', &
             avg_ppc_bef, avg_ppc_aft
       END IF
+
     END DO isp
 
   END SUBROUTINE merge_scheme2
@@ -457,28 +458,29 @@ ncloop:   DO i = 1,ngroup
 
     INTEGER :: ncells, ncells_r, ndiffcells, ndiffcells_r, ndiffs
     INTEGER :: ncurdiff
-    INTEGER :: merge_end_nstep
+    INTEGER :: merge_end_nstep, merge_start_nstep
     REAL(num) :: avg_ppc_bef, avg_ppc_aft, &
       sum_mean, sum_mean_r, avg_mean, &
       sum_mean_max_spread, sum_mean_max_spread_r, avg_mean_max_spread, &
       sum_stddev, sum_stddev_r, avg_stddev, &
       sum_spread2stddev, sum_spread2stddev_r, avg_spread2stddev
-
-    !endprog = .FALSE.
+    REAL(num) :: rest_energy
 
 isp:DO ispecies=1,n_species
 
       IF (.NOT. species_list(ispecies)%merge) CYCLE isp
 
+      rest_energy = species_list(ispecies)%mass*m0 * c**2
       energy_fac = species_list(ispecies)%merge_max_energy_sig
       pcomp_fac = species_list(ispecies)%merge_max_pcomp_sig
       max_ncount = species_list(ispecies)%merge_max_particles
       mass = species_list(ispecies)%mass
       nmerge_start = species_list(ispecies)%merge_start
-      energy_cut = species_list(ispecies)%merge_energy_cut
+      energy_cut = species_list(ispecies)%merge_energy_cut / rest_energy
       merge_end_nstep = species_list(ispecies)%merge_end_nstep
+      merge_start_nstep = species_list(ispecies)%merge_start_nstep
 
-      IF (step .GT. merge_end_nstep) THEN
+      IF (step .GT. merge_end_nstep .OR. step .LT. merge_start_nstep) THEN
         IF (rank == 0) PRINT '("skipping merge for ", A12)', &
           species_list(ispecies)%name
         CYCLE isp
@@ -547,6 +549,7 @@ ixlp: DO ix=1,nx
 
 
           remove = cur_energy .LT. cell_energy + wid_energy
+          remove = remove .AND. cur_energy .LT. energy_cut
           IF (remove) THEN
             CALL remove_particle_from_partlist(plist, cur)
             CALL add_particle_to_partlist(temp_plist, cur)
@@ -564,8 +567,11 @@ ixlp: DO ix=1,nx
             cur_energy = sqrt(cur_v(1)**2+cur_v(2)**2+cur_v(3)**2+1)-1
 
             avg_v = avg_v + cur_v*cur_weight
-            avg_pos = avg_pos + cur%part_pos*cur_weight
-            weight = weight + cur%weight
+            cur_pos = cur%part_pos*cur_weight
+            !PRINT '("rank=",I3,": cur_pos -> [",3ES11.2,"] vs. [",3ES11.2,"]*",ES11.2)', &
+            !  rank, cur_pos, cur%part_pos, cur_weight
+            avg_pos = avg_pos + cur_pos
+            weight = weight + cur_weight
             cur => cur%next
           END DO
           avg_pos = avg_pos / weight
@@ -583,7 +589,7 @@ ixlp: DO ix=1,nx
         CALL destroy_partlist(temp_plist)
 
         nafter = nafter + plist%count
-!
+#ifdef DEBUG_MERGE_LV2
         post_cell_weight = 0
         cur => plist%head
         DO i = 1, plist%count
@@ -591,13 +597,14 @@ ixlp: DO ix=1,nx
           cur => cur%next
         END DO
 
-        PRINT '("rank=",I3.3," (ix,iy)=(",I4.4,",",I4.4,"): ",&
+        PRINT '("rank=",I3," (ix,iy)=(",I4.4,",",I4.4,"): ",&
           &"cell_weight ",ES8.1," -> ",ES8.1)', rank, ix, iy, &
           cell_weight, post_cell_weight
-!
+#endif
       END DO ixlp
       END DO
 
+#ifdef DEBUG_MERGE
       CALL MPI_REDUCE(nafter, nafter_r, 1, MPI_INTEGER, MPI_SUM, 0, &
         comm, ierr)
       CALL MPI_REDUCE(npre, npre_r, 1, MPI_INTEGER, MPI_SUM, 0, &
@@ -639,6 +646,7 @@ ixlp: DO ix=1,nx
             step
         END IF
       END IF
+#endif
     END DO isp
 
   END SUBROUTINE merge_scheme3

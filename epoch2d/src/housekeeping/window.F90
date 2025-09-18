@@ -110,6 +110,9 @@ CONTAINS
     INTEGER :: n, species, errcode
     TYPE(parameter_pack) :: parameters
     REAL(num) :: vex,vey,vez
+
+    ! apparently, I need to set errcode to zero myself...
+    errcode = c_err_none
 #endif
     
     CALL shift_field(ex, ng)
@@ -211,7 +214,7 @@ CONTAINS
             eps_n1(nx:nx+1,j) = vex
             eps_n2(nx:nx+1,j) = vey
           END DO
-        ELSE
+        ELSE IF (eps_n1_func%init) THEN
           DO j = 1-ng, ny+ng
             parameters%pack_iy = j
             vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)

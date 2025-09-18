@@ -2025,6 +2025,7 @@ CONTAINS
   END SUBROUTINE allocate_cpml_fields
 
 #ifdef NEWPML
+
   REAL(num) FUNCTION pml_dist(x,y)
 
     REAL(num), INTENT(in) :: x, y
@@ -2078,7 +2079,8 @@ CONTAINS
 
     INTEGER i, j
 
-    REAL(num) cx,cy,d
+    REAL(num) cx, cy, d
+
     ALLOCATE(pml_inv(1-ng:nx+ng,1-ng:ny+ng))
     ALLOCATE(pml_eye(1-ng:nx+ng,1-ng:ny+ng))
     ALLOCATE(pml_sig(1-ng:nx+ng,1-ng:ny+ng))
@@ -2100,6 +2102,9 @@ CONTAINS
       IF (cpml_thicknesses(i) > 0) &
            pml_thickness_real(i) = REAL(cpml_thicknesses(i),num)
     END DO
+    IF (use_newpml_plateau_xmax) &
+      pml_thickness_real(2) = REAL(cpml_thicknesses(2)-newpml_plateau_cells,num)
+
     pml_thickness_real(1:2) = pml_thickness_real(1:2) * dx
     pml_thickness_real(3:4) = pml_thickness_real(3:4) * dy
 
@@ -2109,7 +2114,14 @@ CONTAINS
       cx = x(i)
 
       d = pml_dist(cx,cy)
-      pml_sig(i,j) = (newpml_coeff_m*d + newpml_coeff_a*d**2)
+
+      IF (use_newpml_plateau_xmax &
+        .AND. cx .GT. x_max &
+        .AND. d  .GT. 1.0_num ) THEN
+        pml_sig(i,j) = newpml_coeff_m + newpml_coeff_a
+      ELSE
+        pml_sig(i,j) = (newpml_coeff_m*d + newpml_coeff_a*d**2)
+      END IF
     END DO
     END DO
     ! handling offsets like set_cpml_helpers

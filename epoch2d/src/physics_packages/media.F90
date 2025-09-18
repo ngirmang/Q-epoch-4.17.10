@@ -333,7 +333,7 @@ CONTAINS
 
     IF (rank .NE. 0) RETURN
 
-    PRINT '("dumping ppt ionisation rates to", A)', &
+    PRINT '("dumping ppt ionisation rates to ", A)', &
          TRIM(full_ionisation_file)
 
     OPEN(ih, file=full_ionisation_file, access='stream')
@@ -700,7 +700,6 @@ CONTAINS
 
         DO iy = 0,ny
   xlp1: DO ix = 0,nx
-
           cur_N = media_density(ix,iy,im)
 
           IF (cur_N .LT. lowdens) CYCLE xlp1
@@ -712,6 +711,8 @@ CONTAINS
           CALL create_empty_partlist(new_e_plist)
 
 nelp:     DO ne=1,nelec
+            cur_N = media_density(ix,iy,im)
+
             dN = 0
             ncreate = 0
             rate_c = 0
@@ -819,7 +820,6 @@ nelp:     DO ne=1,nelec
             cur%part_p = e_p
 
             media_density(ix,iy,im) = cur_N - dN
-            cur_N = media_density(ix,iy,im)
 
             IF (cur_medium%bound .AND. dN .GT. 0) THEN
               n = cur_medium%parent_index

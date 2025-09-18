@@ -68,7 +68,7 @@ CONTAINS
   SUBROUTINE set_extpart_param(param, part_x, part_y)
 
     TYPE(parameter_pack), INTENT(INOUT) :: param
-    REAL(num), INTENT(IN) :: part_x, part_y, part_z
+    REAL(num), INTENT(IN) :: part_x, part_y
 
     param%use_grid_position = .FALSE.
     param%pack_pos(1) = part_x + x_grid_min_local
@@ -435,12 +435,15 @@ CONTAINS
 #endif
 
 #ifdef EXTPARTFIELD
+        ierr = 0
         CALL set_extpart_param(param, part_x, part_y)
-        IF (extpart_ex%init) &
-          ex_part = ex_part + evaluate_with_parameters(extpart_ex, param, ierr)
+        IF (extpart_ex%init) THEN
+          extpart_tmp = evaluate_with_parameters(extpart_ex, param, ierr)
+          ex_part = ex_part + extpart_tmp
+        END IF
         IF (extpart_ey%init) THEN
-          extpart_tmp = evaluate_with_parameters(extpart_ey, param, ierr)
-          ey_part = ey_part + extpart_tmp
+
+          ey_part = ey_part + evaluate_with_parameters(extpart_ey, param, ierr)
         END IF
         IF (extpart_ez%init) &
           ez_part = ez_part + evaluate_with_parameters(extpart_ez, param, ierr)
@@ -451,6 +454,7 @@ CONTAINS
           by_part = by_part + evaluate_with_parameters(extpart_by, param, ierr)
         IF (extpart_bz%init) &
           bz_part = bz_part + evaluate_with_parameters(extpart_bz, param, ierr)
+
 !end EXTPARTFIELD
 #endif
 #ifdef GLOBALFIELD

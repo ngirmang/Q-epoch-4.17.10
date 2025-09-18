@@ -278,6 +278,7 @@ MODULE shared_data
     INTEGER :: merge_start = 0
     REAL(num) :: merge_energy_cut = HUGE(1.0_num)
     INTEGER :: merge_end_nstep = HUGE(1)
+    INTEGER :: merge_start_nstep = 0
 #endif
 
     ! Specify if species is background species or not
@@ -533,6 +534,11 @@ MODULE shared_data
   REAL(num) :: newpml_coeff_a = 0.d0, newpml_coeff_m = 0.d0
   REAL(num), ALLOCATABLE, DIMENSION(:,:) :: pml_inv, pml_eye, pml_sig
   LOGICAL  use_newpml, use_manualpml
+
+  LOGICAL :: use_newpml_plateau_xmax = .FALSE.
+
+  INTEGER :: newpml_plateau_cells = 0
+
   LOGICAL :: floating_laser=.FALSE.
 #endif!NEWPML
 #ifdef GLOBALFIELD

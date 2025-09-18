@@ -182,7 +182,7 @@ DEFINES := $(DEFINE)
 DEFINES += $(D)BOUND_HARMONIC $(D)PARTICLE_ID $(D)WINDOW_NO_EXTRA
 DEFINES += $(D)NEWPML $(D)COLL_ELECCHECK $(D)SKIP_ZEROPARTS $(D)CONSTEPS
 DEFINES += $(D)NONLIN $(D)GLOBALFIELD $(D)MEDIUM $(D)MERGE_PARTICLES
-DEFINES += $(D)QUANTUM_NUMS
+DEFINES += $(D)EXTPARTFIELD $(D)QUANTUM_NUMS
 
 # The following are a list of pre-processor defines which can be added to
 # the above line modifying the code behaviour at compile time.
