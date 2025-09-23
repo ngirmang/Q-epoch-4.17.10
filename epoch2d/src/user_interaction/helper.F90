@@ -129,12 +129,23 @@ CONTAINS
         CYCLE
       END IF
 #endif
+#ifndef DIGITAL_DENSITY
 #ifdef PER_SPECIES_WEIGHT
       CALL non_uniform_load_particles(species_density, species, &
           ic%density_min, ic%density_max)
 #else
       CALL setup_particle_density(species_density, species, &
           ic%density_min, ic%density_max)
+#endif
+#else
+! if def DIGITAL_DENSITY
+      IF (species%digitise_density .AND. .NOT. pre_loading) THEN
+        CALL load_particles_digitally(species_density, species, ic%density_min)
+      ELSE
+        CALL setup_particle_density(species_density, species, &
+          ic%density_min, ic%density_max)
+      END IF
+!end DIGITAL_DENSITY
 #endif
       IF (pre_loading) CYCLE
 
@@ -873,7 +884,98 @@ CONTAINS
     END IF
 
   END SUBROUTINE setup_particle_density
+
+
+
+
+
+#ifdef DIGITAL_DENSITY
+  SUBROUTINE load_particles_digitally(density_in, species, density_min)
+
+    REAL(num), DIMENSION(1-ng:,1-ng:), INTENT(IN) :: density_in
+    TYPE(particle_species), POINTER :: species
+    REAL(num), INTENT(IN) :: density_min
+    TYPE(particle), POINTER :: current, next
+    INTEGER(i8) :: ipart, icur, nparticles
+    REAL(num) :: weight
+    TYPE(particle_list), POINTER :: partlist
+    INTEGER :: ix, iy, i, j, isubx, isuby
+    INTEGER, DIMENSION(:,:), ALLOCATABLE :: digital_density
+
+    ! the start of this mirrors the standard setup_particle_density
+    ALLOCATE(digital_density(1-ng:nx+ng,1-ng:ny+ng))
+    digital_density = NINT(density_in / density_min)
+    !CALL dumpinitparts(digital_density)
+    weight = density_min*dx*dy
+
+    ! sum over non guard cells
+    nparticles = 0
+    DO ix = 1, nx
+    DO iy = 1, ny
+      nparticles = nparticles + digital_density(ix,iy)
+    END DO
+    END DO
+
+    partlist => species%attached_list
+    CALL destroy_partlist(partlist)
+    CALL create_allocated_partlist(partlist, nparticles)
+
+    ipart = 0
+    current => partlist%head
+    DO ix = 1, nx
+    DO iy = 1, ny
+
+      IF (digital_density(ix,iy) == 0) CYCLE
+      DO icur = 1, digital_density(ix,iy)
+        current%part_pos = 0.0_num
+        current%part_p   = 0.0_num
+        IF (species%digital_random) THEN
+          ! for now we do this, need to check the edges of bound_harmonic
+          current%part_pos(1) = xb(ix) + dx * random()
+          current%part_pos(2) = yb(iy) + dy * random()
+        ELSE
+          PRINT '("non random load NOT implemented yet!")'
+          CALL abort_code(c_err_bad_value)
+        END IF
+        current%weight = weight
+        current => current%next
+        ipart = ipart + 1
+      END DO
+
+    END DO
+    END DO
+    IF (ipart /= nparticles) THEN
+      IF (rank == 0) THEN
+        PRINT '("*** ERROR ***")'
+        PRINT '("Particles left behind in digital load. Please report to ngirmang.")'
+      END IF
+      CALL abort_code(c_err_bad_value)
+    END IF
+
+  END SUBROUTINE load_particles_digitally
+
+!   SUBROUTINE dumpinitparts(nums)
+!
+!     INTEGER, DIMENSION(:,:), INTENT(IN) :: nums
+!
+!     CHARACTER(len=128) :: fname
+!
+!     WRITE (fname,'("initparts",I2.2,".dat")') rank
+!
+!     OPEN (1990, file=fname, access='stream')
+!
+!     WRITE(1990) SHAPE(nums)
+!     WRITE(1990) nums
+!
+!     CLOSE(1990)
+!
+!   END SUBROUTINE dumpinitparts
+
+!endif DIGITAL DENSITY
 #endif
+#endif
+
+
 
 
 

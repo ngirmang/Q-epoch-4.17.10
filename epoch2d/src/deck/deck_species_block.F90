@@ -726,6 +726,14 @@ CONTAINS
       RETURN
     END IF
 #endif
+#ifdef DIGITAL_DENSITY
+
+    IF (str_cmp(element, 'digital_density')) THEN
+      species_list(species_id)%digitise_density = &
+        as_logical_print(value, element, errcode)
+      RETURN
+    END IF
+#endif
     ! This sets up whether or not to use the MJ sampler for a species.
     ! It could go in the first deck pass, but that requires more temporary
     ! variables and seems unnecessary

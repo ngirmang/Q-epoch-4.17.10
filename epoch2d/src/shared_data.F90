@@ -30,6 +30,9 @@ MODULE shared_data
 #error "we now require BOUND_HARMONIC and CONSTEPS to be compiled together"
 #endif
 #endif
+#if defined(DIGITAL_DENSITY) && defined(PER_SPECIES_WEIGHT)
+#error "for now DIGITAL_DENSITY cannot be compiled with PER_SPECIES_WEIGHT"
+#endif
 
   ! This type represents parameters given to the parser.
   ! It can be extended by a developer freely
@@ -300,6 +303,10 @@ MODULE shared_data
     REAL(num) :: npart_per_cell
 #ifdef BOUND_HARMONIC
     INTEGER(i8) :: dir_nparts(c_ndims)
+#endif
+#ifdef DIGITAL_DENSITY
+    LOGICAL :: digitise_density = .FALSE.
+    LOGICAL :: digital_random = .TRUE.
 #endif
     TYPE(primitive_stack) :: density_function, temperature_function(3)
     TYPE(primitive_stack) :: drift_function(3)
