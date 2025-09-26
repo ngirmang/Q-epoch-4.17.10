@@ -896,10 +896,11 @@ CONTAINS
     TYPE(particle_species), POINTER :: species
     REAL(num), INTENT(IN) :: density_min
     TYPE(particle), POINTER :: current, next
-    INTEGER(i8) :: ipart, icur, nparticles
+    INTEGER(i8) :: ipart, icur, nparticles, npart_total
     REAL(num) :: weight
     TYPE(particle_list), POINTER :: partlist
-    INTEGER :: ix, iy, i, j, isubx, isuby
+    INTEGER :: ix, iy, io, iu
+    CHARACTER(len=string_length) :: string
     INTEGER, DIMENSION(:,:), ALLOCATABLE :: digital_density
 
     ! the start of this mirrors the standard setup_particle_density
@@ -937,6 +938,7 @@ CONTAINS
           PRINT '("non random load NOT implemented yet!")'
           CALL abort_code(c_err_bad_value)
         END IF
+        current%part_ip = current%part_pos
         current%weight = weight
         current => current%next
         ipart = ipart + 1
@@ -951,6 +953,21 @@ CONTAINS
       END IF
       CALL abort_code(c_err_bad_value)
     END IF
+
+    CALL MPI_ALLREDUCE(partlist%count, npart_total, 1, MPI_INTEGER8, &
+        MPI_SUM, comm, errcode)
+    species%count = npart_total
+    species%weight= weight*npart_total
+    IF (rank == 0) THEN
+      CALL integer_as_string(npart_total, string)
+      DO iu = 1, nio_units
+        io = ios_units(iu)
+        WRITE(io,*) 'Loaded ', TRIM(ADJUSTL(string)), &
+            ' particles of species ', '"' // TRIM(species%name) // '"'
+      END DO
+    END IF
+
+    CALL particle_bcs
 
   END SUBROUTINE load_particles_digitally
 
