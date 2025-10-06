@@ -55,8 +55,8 @@ CONTAINS
     IF (deck_state == c_ds_first) THEN
       ! not going to make a routine for what takes a few lines
       ALLOCATE(media_list(n_media))
-      eps_stored = .TRUE.
-      use_eps_n1n2 = .TRUE.
+      !eps_stored = .TRUE.
+      !use_eps_n1n2 = .TRUE.
       RETURN
     END IF
 
@@ -139,10 +139,12 @@ CONTAINS
     REAL(num), DIMENSION(:), POINTER :: r_media_indices
 
     errcode = c_err_none
-    IF (str_cmp(element, 'molecular_n1') &
-        .OR. str_cmp(element, 'molecular_n2')) THEN
+    IF (str_cmp(element, 'molecular_alpha') &
+        .OR. str_cmp(element, 'molecular_alpha2')) THEN
       eps_stored = .TRUE.
       use_eps_n1n2 = .TRUE.
+      use_media_alpha = .TRUE.
+      !IF (rank == 0) PRINT '("using molecular n1/n2")'
     END IF
 
     IF (deck_state == c_ds_first) RETURN

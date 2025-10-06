@@ -1136,12 +1136,16 @@ xlp4: DO ix = 0, nx
   SUBROUTINE update_medium_n1n2
 
     INTEGER :: ix,iy, im
-    REAL(num) :: N_c, v, alpha, alpha2, cur_N, max_n1
+    REAL(num) :: N_c, v, alpha, alpha2, cur_N
+
+    IF (.NOT. use_media_alpha) RETURN
+!   IF (rank == 0) PRINT '("figuring molecular n1/n2")'
+
+    eps_delta_n1 = 0.0_num
+    eps_delta_n2 = 0.0_num
 
     DO im = 1,n_media
       IF (.NOT. media_list(im)%contribute_n1) CYCLE
-
-      !max_n1 = 0.0_num
 
       alpha = media_list(im)%mol_al1
       alpha2= media_list(im)%mol_al2
@@ -1150,9 +1154,8 @@ xlp4: DO ix = 0, nx
       DO ix = 0,nx
 
         cur_N = media_density(ix,iy,im)
-        eps_n1(ix,iy) = 1.0_num + cur_N*alpha
-        !IF (eps_n1(ix,iy) .gt. max_n1) max_n1 = eps_n1(ix,iy)
-        eps_n2(ix,iy) = cur_N*alpha2
+        eps_delta_n1(ix,iy) = eps_delta_n1(ix,iy) + cur_N*alpha
+        eps_delta_n2(ix,iy) = eps_delta_n2(ix,iy) + cur_N*alpha2
       END DO
       END DO
 

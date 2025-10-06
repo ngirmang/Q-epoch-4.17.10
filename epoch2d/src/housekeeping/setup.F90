@@ -654,7 +654,7 @@ CONTAINS
       END IF
     END IF
 #ifdef MEDIUM
-    IF (n_media > 1) media_density = 0.0_num
+    IF (n_media > 0) media_density = 0.0_num
 #endif
 #endif
     ! Set up random number seed

@@ -368,7 +368,7 @@ CONTAINS
   SUBROUTINE update_eps_n1n2
 
     INTEGER :: ix, iy
-    REAL(num) :: esq, vn
+    REAL(num) :: esq, vn, vn2
     ! add chi3, use epsy as a temporary
 
 #ifdef MEDIUM
@@ -383,9 +383,16 @@ CONTAINS
         esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
         esq = esq + ez(ix,iy)**2
 
-        vn  = 1.0_num - 1.0_num / (1.0_num + eps_n2(ix,iy)*esq)
-        vn  = vn + eps_n1(ix,iy)
 
+        vn2 = eps_n2(ix,iy)
+#ifdef MEDIUM
+        IF (use_media_alpha) vn2 = vn2 + eps_delta_n2(ix,iy)
+#endif
+        vn  = 1.0_num - 1.0_num / (1.0_num + vn2*esq)
+        vn  = vn + eps_n1(ix,iy)
+#ifdef MEDIUM
+        IF (use_media_alpha) vn = vn + eps_delta_n1(ix,iy)
+#endif
         vn  = vn**2
 
         epsx(ix,iy) = vn
@@ -393,6 +400,8 @@ CONTAINS
         epsz(ix,iy) = vn
       END DO
       END DO
+!     IF (rank == 0) PRINT '("n2 = ", ES10.2)', vn2
+!     IF (rank == 0) PRINT '("n = ", ES15.7)', vn
 
     ELSE
 
@@ -402,7 +411,15 @@ CONTAINS
         esq = esq +  (0.5_num*(ey(ix,iy-1) + ey(ix,iy)))**2.0_num
         esq = esq + ez(ix,iy)**2
 
-        vn  = eps_n1(ix,iy) + eps_n2(ix,iy)*esq
+        vn2 = eps_n2(ix,iy)
+#ifdef MEDIUM
+        IF (use_media_alpha) vn2 = vn2 + eps_delta_n2(ix,iy)
+#endif
+        vn  = eps_n1(ix,iy) + vn2*esq
+#ifdef MEDIUM
+        IF (use_media_alpha) vn = vn + eps_delta_n1(ix,iy)
+#endif
+
         vn  = vn**2
         epsx(ix,iy) = vn
         epsy(ix,iy) = vn

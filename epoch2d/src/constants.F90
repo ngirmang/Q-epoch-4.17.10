@@ -598,7 +598,8 @@ MODULE constants
   INTEGER, PARAMETER :: c_dump_n2                = 80
 #ifdef MEDIUM
   INTEGER, PARAMETER :: c_dump_medium_density    = 81
-  INTEGER, PARAMETER :: num_vars_to_dump         = 81
+  INTEGER, PARAMETER :: c_dump_full_n2           = 82
+  INTEGER, PARAMETER :: num_vars_to_dump         = 82
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 80
 #endif

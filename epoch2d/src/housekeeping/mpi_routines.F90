@@ -415,6 +415,10 @@ CONTAINS
 #ifdef MEDIUM
     IF (n_media > 0) &
       ALLOCATE(media_density(1-ng:nx+ng, 1-ng:ny+ng, n_media))
+    IF (use_media_alpha .AND. n_media .GT. 0) THEN
+      ALLOCATE(eps_delta_n1(1-ng:nx+ng, 1-ng:ny+ng))
+      ALLOCATE(eps_delta_n2(1-ng:nx+ng, 1-ng:ny+ng))
+    END IF
 #endif
 !end CONSTEPS or MEDIUM
 #endif
