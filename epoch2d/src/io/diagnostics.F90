@@ -857,6 +857,11 @@ CONTAINS
             c_stagger_cell_centre, calc_poynt_flux, array, fluxdir(1:3), &
             dim_tags)
 #ifdef MEDIUM
+        IF (use_media_alpha) THEN
+          CALL write_nspecies_field(c_dump_full_n2, code,    &
+            'full_n2', 'Full Kerr Coefficient', 'm^2/V^2', &
+            c_stagger_cell_centre, calc_full_n2, array)
+        END IF
 
         CALL write_nspecies_medium_density(code) ! finalise then try
 #endif
@@ -2800,6 +2805,7 @@ CONTAINS
     END DO ! n_blocks
 
   END SUBROUTINE write_nspecies_medium_density
+
 
 
 #if 0

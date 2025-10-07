@@ -601,6 +601,9 @@ MODULE shared_data
   INTEGER :: media_prod_freq = 1
   CHARACTER(LEN=string_length) :: full_ionisation_file
   LOGICAL :: dump_ionisation_file = .FALSE., load_ionisation_file = .FALSE.
+
+  REAL(num), DIMENSION(:,:), ALLOCATABLE :: eps_delta_n1, eps_delta_n2
+  LOGICAL :: use_media_alpha = .FALSE.
 #endif
 
   !----------------------------------------------------------------------------

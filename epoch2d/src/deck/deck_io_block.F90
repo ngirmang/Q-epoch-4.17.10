@@ -643,6 +643,9 @@ CONTAINS
 #ifdef MEDIUM
     ELSE IF (str_cmp(element, 'medium_density')) THEN
       elementselected = c_dump_medium_density
+
+    ELSE IF (str_cmp(element, 'full_n2')) THEN
+      elementselected = c_dump_full_n2
 #endif
 
     ELSE IF (str_cmp(element, 'ppc') &
@@ -865,6 +868,7 @@ CONTAINS
         IF (mask_element == c_dump_total_energy_sum) bad = .FALSE.
 #ifdef MEDIUM
         IF (mask_element == c_dump_medium_density) bad = .FALSE.
+        IF (mask_element == c_dump_full_n2) bad = .FALSE.
 #endif
         IF (bad) THEN
           IF (rank == 0 .AND. IAND(mask, c_io_species) /= 0) THEN
@@ -896,6 +900,9 @@ CONTAINS
         IF (mask_element == c_dump_jy) bad = .FALSE.
         IF (mask_element == c_dump_jz) bad = .FALSE.
         IF (mask_element == c_dump_poynt_flux) bad = .FALSE.
+#ifdef MEDIUM
+        IF (mask_element == c_dump_full_n2) bad = .FALSE.
+#endif
 
         ! Unset 'no_sum' dumpmask for grid variables
         IF (.NOT.bad) mask = IAND(mask, NOT(c_io_no_sum))
@@ -914,6 +921,10 @@ CONTAINS
         IF (mask_element == c_dump_temperature_y) bad = .FALSE.
         IF (mask_element == c_dump_temperature_z) bad = .FALSE.
         IF (mask_element == c_dump_ekflux) bad = .FALSE.
+#ifdef MEDIUM
+        IF (mask_element == c_dump_full_n2) bad = .FALSE.
+#endif
+
         IF (bad) THEN
           IF (rank == 0) THEN
             DO iu = 1, nio_units ! Print to stdout and to file

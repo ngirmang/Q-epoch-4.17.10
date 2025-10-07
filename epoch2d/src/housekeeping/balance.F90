@@ -617,6 +617,12 @@ CONTAINS
       ALLOCATE(media_density(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
       media_density = temp_sum
       DEALLOCATE(temp_sum) ! later, the size is assumed...sigh
+
+      IF (use_media_alpha) THEN
+        DEALLOCATE(eps_delta_n1, eps_delta_n2)
+        ALLOCATE(eps_delta_n1(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+        ALLOCATE(eps_delta_n2(1-ng:nx_new+ng, 1-ng:ny_new+ng))
+      END IF
 #endif
       
     END IF

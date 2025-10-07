@@ -1643,7 +1643,12 @@ CONTAINS
         gamma_rel_inv = SQRT(1.0_num - vc_sq)
         gc = 1.0_num / gamma_rel_inv
 
-        gc_m1_vc = (gc - 1.0_num) / vc_sq
+        !this is indefinite if p1 = p2. the limit of this is 1/2, not that it matters.
+        IF ( vc_sq .le. eps ) THEN
+          gc_m1_vc = 0.5_num
+        ELSE
+          gc_m1_vc = (gc - 1.0_num) / vc_sq
+        END IF
 
         p3 = p1 + (gc_m1_vc * DOT_PRODUCT(vc, v1) - gc) * gm1 * vc
 

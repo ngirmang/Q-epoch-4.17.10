@@ -1321,5 +1321,20 @@ CONTAINS
     initial_jz = sum_in(3) * fac
 
   END SUBROUTINE calc_initial_current
+#ifdef MEDIUM
+
+
+
+  SUBROUTINE calc_full_n2(data_array, current_species, direction)
+
+    REAL(num), DIMENSION(1-ng:,1-ng:), INTENT(OUT) :: data_array
+    INTEGER, INTENT(IN) :: current_species
+    INTEGER, INTENT(IN), OPTIONAL :: direction
+    INTEGER :: ix, iy
+
+    data_array = eps_n2 + eps_delta_n2
+
+  END SUBROUTINE calc_full_n2
+#endif
 
 END MODULE calc_df
