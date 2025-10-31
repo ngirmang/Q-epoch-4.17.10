@@ -647,6 +647,23 @@ CONTAINS
     ELSE IF (str_cmp(element, 'full_n2')) THEN
       elementselected = c_dump_full_n2
 #endif
+#ifdef PERFMON2D
+
+    ELSE IF (str_cmp(element, 'perf_avg')) THEN
+      elementselected = c_dump_perf_avg
+
+    ELSE IF (str_cmp(element, 'perf_rms')) THEN
+      elementselected = c_dump_perf_rms
+
+    ELSE IF (str_cmp(element, 'perf_med')) THEN
+      elementselected = c_dump_perf_med
+
+    ELSE IF (str_cmp(element, 'perf_min')) THEN
+      elementselected = c_dump_perf_min
+
+    ELSE IF (str_cmp(element, 'perf_max')) THEN
+      elementselected = c_dump_perf_max
+#endif
 
     ELSE IF (str_cmp(element, 'ppc') &
         .OR. str_cmp(element, 'particles_per_cell')) THEN

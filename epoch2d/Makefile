@@ -183,6 +183,7 @@ DEFINES += $(D)BOUND_HARMONIC $(D)PARTICLE_ID $(D)WINDOW_NO_EXTRA
 DEFINES += $(D)NEWPML $(D)COLL_ELECCHECK $(D)SKIP_ZEROPARTS $(D)CONSTEPS
 DEFINES += $(D)NONLIN $(D)GLOBALFIELD $(D)MEDIUM $(D)MERGE_PARTICLES
 DEFINES += $(D)EXTPARTFIELD $(D)QUANTUM_NUMS $(D)DIGITAL_DENSITY
+DEFINES += $(D)PERFMON2D
 
 # The following are a list of pre-processor defines which can be added to
 # the above line modifying the code behaviour at compile time.
@@ -285,7 +286,6 @@ ifeq ($(strip $(MODE)),debug)
   DEFINES += $(D)DECK_DEBUG
 endif
 
-
 # --------------------------------------------------
 # Shouldn't need to touch below here
 # --------------------------------------------------
@@ -328,7 +328,13 @@ SRCFILES = balance.F90 boundary.F90 bremsstrahlung.F90 calc_df.F90 \
   shared_data.F90 shunt.F90 simple_io.F90 split_particle.F90 stack.f90 \
   strings.f90 strings_advanced.f90 terminal_controls.F90 timer.f90 \
   tokenizer_blocks.f90 utilities.F90 version_data.F90 welcome.F90 window.F90 \
-  media.F90 deck_medium_block.F90 merge.F90
+  media.F90 deck_medium_block.F90 merge.F90 perfmon.F90
+
+ifeq ($(findstring $(D)PERFMON2D,$(DEFINES)),)
+	EPOCH2DSRC=epoch2d.F90
+else
+	EPOCH2DSRC=epochtimed/epoch2d.F90
+endif
 
 OBJFILES := $(SRCFILES:.f90=.o)
 OBJFILES := $(OBJFILES:.F90=.o)
@@ -351,9 +357,12 @@ FULLTARGET = $(BINDIR)/$(TARGET)
 SOURCE_ALL := Makefile $(SRCFILES) $(INCLUDES) pack.py pack.sh \
   $(SRCDIR)/COMMIT $(SRCDIR)/gen_commit_string.sh epoch_source_info_dummy.f90
 
+#VPATH = $(SRCDIR):$(SRCDIR)/deck:$(SRCDIR)/housekeeping:$(SRCDIR)/io:\
+#  $(SRCDIR)/parser:$(SRCDIR)/physics_packages:$(SRCDIR)/user_interaction:\
+#  $(SDF)/src:$(OBJDIR)
 VPATH = $(SRCDIR):$(SRCDIR)/deck:$(SRCDIR)/housekeeping:$(SRCDIR)/io:\
   $(SRCDIR)/parser:$(SRCDIR)/physics_packages:$(SRCDIR)/user_interaction:\
-  $(SDF)/src:$(OBJDIR)
+  $(SRCDIR)/epochtimer:$(SDF)/src:$(OBJDIR)
 
 PACK_SDF = $(SRCDIR)/pack.sh
 
@@ -500,13 +509,18 @@ deck_window_block.o: deck_window_block.f90 strings_advanced.o
 deltaf_loader.o: deltaf_loader.F90 shared_data.o
 diagnostics.o: diagnostics.F90 calc_df.o constants.o deck.o deck_io_block.o \
   dist_fn.o evaluate.o iterators.o particle_id_hash.o probes.o setup.o \
-  strings.o timer.o version_data.o window.o $(SDFMOD) $(ENCODED_SOURCE)
+  strings.o timer.o version_data.o window.o perfmon.o $(SDFMOD) $(ENCODED_SOURCE)
 dist_fn.o: dist_fn.F90 mpi_subtype_control.o particles.o $(SDFMOD)
-epoch2d.o: epoch2d.F90 balance.o bremsstrahlung.o calc_df.o collisions.o \
+epoch2d.o: $(EPOCH2DSRC) balance.o bremsstrahlung.o calc_df.o collisions.o \
   current_smooth.o deck.o diagnostics.o fields.o finish.o helper.o ic_module.o \
   injectors.o ionise.o mpi_routines.o particle_migration.o particles.o \
-  photons.o setup.o split_particle.o welcome.o window.o media.o merge.o
-	$(FC) -c $(FFLAGS) $(FLTCONS) -o $(OBJDIR)/$@ $(PREPROFLAGS) $<
+  photons.o setup.o split_particle.o welcome.o window.o media.o merge.o perfmon.o
+	$(FC) -c $(FFLAGS) $(FLTCONS) -o $(OBJDIR)/epoch2d.o $(PREPROFLAGS) $<
+# epoch2d.o: epoch2d.F90 balance.o bremsstrahlung.o calc_df.o collisions.o \
+#   current_smooth.o deck.o diagnostics.o fields.o finish.o helper.o ic_module.o \
+#   injectors.o ionise.o mpi_routines.o particle_migration.o particles.o \
+#   photons.o setup.o split_particle.o welcome.o window.o media.o merge.o
+# 	$(FC) -c $(FFLAGS) $(FLTCONS) -o $(OBJDIR)/$@ $(PREPROFLAGS) $<
 evaluate.o: evaluate.F90 shunt.o stack.o
 evaluator_blocks.o: evaluator_blocks.F90 custom_parser.o stack.o strings.o
 fields.o: fields.F90 media.o boundary.o
@@ -535,6 +549,7 @@ particle_temperature.o: particle_temperature.F90 constants.o evaluate.o \
   random_generator.o
 particles.o: particles.F90 boundary.o partlist.o prefetch.o
 partlist.o: partlist.F90 particle_id_hash.o random_generator.o shared_data.o
+perfmon.o: perfmon.F90 constants.o shared_data.o
 photons.o: photons.F90 partlist.o
 prefetch.o: prefetch.F90 shared_data.o
 probes.o: probes.F90 partlist.o $(SDFMOD)

@@ -599,7 +599,18 @@ MODULE constants
 #ifdef MEDIUM
   INTEGER, PARAMETER :: c_dump_medium_density    = 81
   INTEGER, PARAMETER :: c_dump_full_n2           = 82
+! this is becoming unbearable, honestly...
+#ifdef PERFMON2D
+  INTEGER, PARAMETER :: c_dump_perf_avg          = 83
+  INTEGER, PARAMETER :: c_dump_perf_rms          = 84
+  INTEGER, PARAMETER :: c_dump_perf_med          = 85
+  INTEGER, PARAMETER :: c_dump_perf_min          = 86
+  INTEGER, PARAMETER :: c_dump_perf_max          = 87
+  INTEGER, PARAMETER :: num_vars_to_dump         = 87
+#else
+! if not perfmon2d but medium
   INTEGER, PARAMETER :: num_vars_to_dump         = 82
+#endif
 #else
   INTEGER, PARAMETER :: num_vars_to_dump         = 80
 #endif
@@ -636,5 +647,20 @@ MODULE constants
   INTEGER, PARAMETER :: c_max_prefix = 16
   ! Maximum path length on Linux machines
   INTEGER, PARAMETER :: c_max_path_length = 4096 + c_max_prefix
+#ifdef PERFMON2D
 
+  ! Performance id's
+  INTEGER, PARAMETER :: c_perfid_timestep    = 1
+  INTEGER, PARAMETER :: c_perfid_fieldsolve1 = 2
+  INTEGER, PARAMETER :: c_perfid_partpush    = 3
+  INTEGER, PARAMETER :: c_perfid_mediaionise = 4
+  INTEGER, PARAMETER :: c_perfid_part2grid   = 5
+  INTEGER, PARAMETER :: c_perfid_collision   = 6
+  INTEGER, PARAMETER :: c_perfid_merge       = 7
+  INTEGER, PARAMETER :: c_perfid_reattach    = 8
+  INTEGER, PARAMETER :: c_perfid_fieldsolve2 = 9
+  INTEGER, PARAMETER :: c_perfpts            = 9
+
+  INTEGER, PARAMETER :: c_nperfstops         = 3
+#endif
 END MODULE constants

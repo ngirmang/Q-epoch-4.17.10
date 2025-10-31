@@ -30,6 +30,10 @@ MODULE diagnostics
   USE window
   USE timer
   USE particle_id_hash_mod
+#ifdef PERFMON2D
+  USE perfmon, only: perfavg, perfrms, perfmed, perfmin, perfmax, &
+    nperfstops, nperfpts
+#endif
 
   IMPLICIT NONE
 
@@ -607,6 +611,24 @@ CONTAINS
         CALL write_field(c_dump_cpml_psi_bzy, code, 'cpml_psi_bzy', &
             'CPML/Bz_y', 'A/m^2', c_stagger_cell_centre, cpml_psi_bzy)
       END IF
+#ifdef PERFMON2D
+
+      CALL write_perfmon(c_dump_perf_avg, code, &
+        'perf_avg', 'Performance Monitor Average', &
+        perfavg)
+      CALL write_perfmon(c_dump_perf_rms, code, &
+        'perf_rms', 'Performance Monitor Root-Mean-Square', &
+        perfrms)
+      CALL write_perfmon(c_dump_perf_med, code, &
+        'perf_med', 'Performance Monitor Median', &
+        perfmed)
+      CALL write_perfmon(c_dump_perf_min, code, &
+        'perf_min', 'Performance Monitor Minimum', &
+        perfmin)
+      CALL write_perfmon(c_dump_perf_max, code, &
+        'perf_avg', 'Performance Monitor Maximum', &
+        perfmax)
+#endif
 
       IF (n_subsets > 0) THEN
         DO i = 1, n_species
@@ -2541,7 +2563,37 @@ CONTAINS
   END SUBROUTINE write_nspecies_field
 
 
+#ifdef PERFMON2D
+  SUBROUTINE write_perfmon(id, code, block_id, name, perfmon_data)
 
+    INTEGER, INTENT(IN) :: code, id
+    CHARACTER(LEN=*), INTENT(IN) :: block_id, name
+    REAL(num), INTENT(IN) :: perfmon_data(Nperfstops, Nperfpts)
+
+    INTEGER :: dims(3)
+    REAL(num) :: temp_out(Nperfstops, Nperfpts, 1)
+    INTEGER :: mask, i
+    LOGICAL :: normal_id, restart_id
+
+    mask = iomask(id)
+    IF (IAND(mask, code) == 0) RETURN
+    IF (IAND(mask, c_io_never) /= 0) RETURN
+    normal_id = IAND(IAND(code, mask), IOR(c_io_always, c_io_full)) /= 0
+    restart_id = IAND(IAND(code, mask), c_io_restartable) /= 0
+    IF (.NOT.normal_id .AND. .NOT.restart_id) RETURN
+
+    dims = (/ Nperfstops, Nperfpts, nproc /)
+    !average
+    temp_out(:,:,1) =  perfmon_data(:,:)
+
+    CALL sdf_write_array(sdf_handle, TRIM(block_id), TRIM(name), &
+      temp_out, dims, (/1, 1, rank + 1/))
+
+  END SUBROUTINE write_perfmon
+
+
+
+#endif
 #ifdef MEDIUM
   SUBROUTINE write_nspecies_medium_density(code)
 
