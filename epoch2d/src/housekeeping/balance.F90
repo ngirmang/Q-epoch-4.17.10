@@ -20,6 +20,9 @@ MODULE balance
   USE redblack_module
   USE timer
   USE utilities
+#ifdef MEDIUM
+  USE media, only : force_realloc_medium_buffers
+#endif
 
   IMPLICIT NONE
 
@@ -116,6 +119,14 @@ CONTAINS
     ! On one processor do nothing to save time
     IF (nproc == 1) RETURN
 
+#ifdef HACK_NEVER_REBALANCE
+    IF (never_rebalance) THEN
+      IF (rank == 0 .AND. .NOT. never_rebalance_notice_output) &
+        PRINT '(">>skipping rebalance due to never_rebalance in control block")'
+      never_rebalance_notice_output = .TRUE.
+      RETURN
+    END IF
+#endif
     full_check = over_ride
     IF (step - last_full_check < dlb_force_interval) THEN
       IF (step - last_check < balance_check_frequency) RETURN
@@ -608,6 +619,8 @@ CONTAINS
 #ifdef MEDIUM
     IF (n_media > 0) THEN ! so far, temp_sum is not used yet
 
+      CALL force_realloc_medium_buffers
+
       ALLOCATE(temp_sum(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
 
       DO i=1,n_media
@@ -616,6 +629,10 @@ CONTAINS
       DEALLOCATE(media_density)
       ALLOCATE(media_density(1-ng:nx_new+ng,1-ng:ny_new+ng,n_media))
       media_density = temp_sum
+      !added
+      !PRINT '(I3.3, ": ",ES9.1)', rank, media_density(nx,1,2)
+      !end added
+
       DEALLOCATE(temp_sum) ! later, the size is assumed...sigh
 
       IF (use_media_alpha) THEN

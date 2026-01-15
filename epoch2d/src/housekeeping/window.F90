@@ -18,7 +18,10 @@ MODULE window
   USE boundary
   USE partlist
   USE evaluator
+#ifdef MEDIUM
+  USE media, only : medium_bcs
 
+#endif
   IMPLICIT NONE
 
   REAL(num), ALLOCATABLE :: density(:), temperature(:,:), drift(:,:)
@@ -107,7 +110,8 @@ CONTAINS
 
     INTEGER :: j
 #if defined(CONSTEPS) || defined(MEDIUM)
-    INTEGER :: n, species, errcode
+    INTEGER :: i
+    INTEGER :: n, im, ispecies, errcode
     TYPE(parameter_pack) :: parameters
     REAL(num) :: vex,vey,vez
 
@@ -157,9 +161,12 @@ CONTAINS
 
 #ifdef MEDIUM
     IF (n_media > 0) THEN
-      DO n = 1, n_media
-        CALL shift_field(media_density(:,:,n), ng)
+      CALL medium_bcs
+      DO im = 1, n_media
+        CALL shift_media(im, ng)
       END DO
+      CALL medium_bcs
+
     END IF
 #endif
 ! if defined CONSTEPS or MEDIUM
@@ -200,13 +207,16 @@ CONTAINS
 
       ! set the epsilon of the incoming cell
 
-      CALL set_tokenizer_stagger(c_stagger_centre)
-      parameters%pack_ix = nx
+
 
       ! change to order of loops for efficiency
       IF (use_eps_n1n2) THEN
 
         IF (eps_n2_func%init) THEN
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          parameters%pack_ix = nx
+          parameters%use_grid_position = .TRUE.
+
           DO j = 1-ng, ny+ng
             parameters%pack_iy = j
             vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)
@@ -215,13 +225,22 @@ CONTAINS
             eps_n2(nx:nx+1,j) = vey
           END DO
         ELSE IF (eps_n1_func%init) THEN
+          CALL set_tokenizer_stagger(c_stagger_centre)
+          parameters%pack_ix = nx
+          parameters%use_grid_position = .TRUE.
+
           DO j = 1-ng, ny+ng
             parameters%pack_iy = j
             vex = evaluate_with_parameters(eps_n1_func, parameters, errcode)
             eps_n1(nx:nx+1,j) = vex
           END DO
         END IF
+
       ELSE ! use dielectric model
+        CALL set_tokenizer_stagger(c_stagger_centre)
+        parameters%pack_ix = nx
+        parameters%use_grid_position = .TRUE.
+
         vex = 1.0_num ; vey = 1.0_num ; vez = 1.0_num
         DO j = 1-ng, ny+ng
           parameters%pack_iy = j
@@ -250,20 +269,24 @@ CONTAINS
 #ifdef MEDIUM
       ! handle media
       IF (n_media > 0) THEN
-        media: DO n = 1, n_media
-          species = media_list(n)%species
-          IF (.NOT. species_list(species)%density_function%init) THEN
-            media_density(nx:nx+1,:,n) = 0.0_num
+        CALL set_tokenizer_stagger(c_stagger_centre)
+        parameters%use_grid_position = .TRUE.
+
+        media: DO im = 1, n_media
+          ispecies = media_list(im)%species
+          IF (.NOT. species_list(ispecies)%function_defined) THEN
+            media_density(nx:nx+1,:,im) = 0.0_num
             CYCLE media
           END IF
-
           DO j = 1-ng, ny+ng
+          DO i = nx, nx+1
             parameters%pack_iy = j
+            parameters%pack_ix = i
             vex = evaluate_with_parameters( &
-                 species_list(species)%density_function, &
+                 species_list(ispecies)%density_function, &
                  parameters, errcode)
-
-            media_density(nx:nx+1,j,n) = vex
+            media_density(i,j,im) = vex
+          END DO
           END DO
         END DO media
       END IF
@@ -292,6 +315,22 @@ CONTAINS
     CALL field_bc(field, ng)
 
   END SUBROUTINE shift_field
+#ifdef MEDIUM
+
+
+
+  SUBROUTINE shift_media(im, ng)
+
+    INTEGER, INTENT(IN) :: im, ng
+    INTEGER i, j
+    DO j = 1-ng, ny+ng
+    DO i = 1-ng, nx+ng-1
+      media_density(i,j,im) = media_density(i+1,j,im)
+    END DO
+    END DO
+
+  END SUBROUTINE shift_media
+#endif
 
 
 
@@ -540,6 +579,11 @@ CONTAINS
       IF (window_shift_cells > 0) THEN
         window_shift_real = REAL(window_shift_cells, num)
         window_offset = window_offset + window_shift_real * dx
+        !added
+        !PRINT '("before shift_window:rank=",I3.3,", media_density(nx+1,1,2)=",ES9.1)', &
+        !  rank, media_density(nx+1,1,2)
+        !end added
+
         CALL shift_window(window_shift_cells)
         CALL particle_bcs
         window_shift_fraction = window_shift_fraction - window_shift_real

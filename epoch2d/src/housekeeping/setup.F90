@@ -1399,7 +1399,7 @@ CONTAINS
           n=species_list(ispecies)%medium_index
           IF (n <= 0) CYCLE
           CALL sdf_read_plain_variable(sdf_handle, media_density(:,:,n), &
-               subtype_field, subarray_field)
+              subtype_field, subarray_field)
 #endif
 
         END IF
@@ -1559,6 +1559,12 @@ CONTAINS
     CALL sdf_close(sdf_handle)
     CALL free_subtypes_for_load(species_subtypes, species_subtypes_i4, &
         species_subtypes_i8)
+    !added
+    !PRINT '("rank=",I3.3,", media_density(nx-1:nx+ng,ny/2,2) = ",7ES9.1)', &
+    !  rank, media_density(nx-1:nx+ng,ny/2,2)
+    !end added
+    !PRINT '("rank=",I3.3,", media_density(nx,1,2) = ",ES9.1)', &
+    !  rank, media_density(nx,1,2)
 
     ! Reset dump_at_walltimes
     DO i = 1, n_io_blocks
@@ -1593,6 +1599,95 @@ CONTAINS
 
   END SUBROUTINE restart_data
 
+#ifdef HACK_FIX_MEDIA_RESTART
+  SUBROUTINE fix_media_restart ! not used now...
+    INTEGER :: n, ispecies, errcode
+    TYPE(parameter_pack) :: parameters
+    REAL(num) :: v, vsav
+    INTEGER :: im, ix, iy
+    TYPE(primitive_stack) :: density_function
+    LOGICAL :: printit
+    printit = .FALSE.
+
+    CALL set_tokenizer_stagger(c_stagger_centre)
+
+    CALL MPI_BARRIER(comm, errcode)
+    medialoop: DO im = 1, n_media
+      IF (.NOT. species_list(ispecies)%density_function%init) CYCLE
+      ispecies = media_list(im)%species
+      density_function = species_list(ispecies)%density_function
+
+      IF (proc_x_max == MPI_PROC_NULL) THEN
+        DO iy = 0, ny + 1
+          DO ix = nx + 1, nx + 2
+            parameters%pack_ix = ix
+            parameters%pack_iy = iy
+
+            v = evaluate_with_parameters(density_function, parameters, errcode)
+            IF (v .gt. 0 .and. .not. printit) THEN
+              vsav = v
+              printit = .TRUE.
+            END IF
+            media_density(ix, iy, im) = v
+
+          END DO
+        END DO
+      END IF
+      IF (proc_x_min == MPI_PROC_NULL) THEN
+        DO iy = 0, ny + 1
+          DO ix = -1, 0
+            parameters%pack_ix = ix
+            parameters%pack_iy = iy
+
+            v = evaluate_with_parameters(density_function, parameters, errcode)
+            IF (v .gt. 0 .and. .not. printit) THEN
+              vsav = v
+              printit = .TRUE.
+            END IF
+
+            media_density(ix, iy, im) = v
+          END DO
+        END DO
+      END IF
+
+      IF (proc_y_max == MPI_PROC_NULL) THEN
+        DO iy = ny + 1, ny + 2
+          DO ix = 0, nx + 1
+            parameters%pack_ix = ix
+            parameters%pack_iy = iy
+
+            v = evaluate_with_parameters(density_function, parameters, errcode)
+            IF (v .gt. 0 .and. .not. printit) THEN
+              vsav = v
+              printit = .TRUE.
+            END IF
+
+            media_density(ix, iy, im) = v
+          END DO
+        END DO
+      END IF
+      IF (proc_y_min == MPI_PROC_NULL) THEN
+        DO iy = -1, 0
+          DO ix = 0, nx + 1
+            parameters%pack_ix = ix
+            parameters%pack_iy = iy
+
+            v = evaluate_with_parameters(density_function, parameters, errcode)
+            IF (v .gt. 0 .and. .not. printit) THEN
+              vsav = v
+              printit = .TRUE.
+            END IF
+
+            media_density(ix, iy, im) = v
+          END DO
+        END DO
+      END IF
+    END DO medialoop
+    PRINT '("test of this shit lol")'
+    IF (printit) PRINT '("rank=",I3,": found this: ", ES9.2)', rank, vsav
+  END SUBROUTINE fix_media_restart
+! endif HACK_FIX_MEDIA_RESTART
+#endif
 
 
   SUBROUTINE setup_persistent_subsets

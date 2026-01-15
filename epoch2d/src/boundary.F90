@@ -59,7 +59,7 @@ CONTAINS
       IF (bc_field(i) == c_bc_simple_outflow) any_open = .TRUE.
     END DO
 #ifdef NEWPML
-    IF (RANK==0) PRINT '(A,6I4)', "cpml_thicknesses=", cpml_thicknesses
+    IF (RANK==0) PRINT '("setup_boundaries called at step=",I6.6," with cpml_thicknesses=",4I6)', step, cpml_thicknesses
     IF(use_newpml) cpml_boundaries = .FALSE.
 #endif!NEWPML
 
@@ -1367,6 +1367,7 @@ CONTAINS
           IF (ABS(ix) + ABS(iy) == 0) CYCLE
           ixp = -ix
           iyp = -iy
+
           CALL partlist_sendrecv(send(ix, iy), recv(ixp, iyp), &
               neighbour(ix, iy), neighbour(ixp, iyp))
           CALL append_partlist(species_list(ispecies)%attached_list, &

@@ -487,6 +487,11 @@ CONTAINS
       merge_scheme = as_integer_print(value, element, errcode)
 
 #endif
+#ifdef HACK_NEVER_REBALANCE
+    ELSE IF (str_cmp(element, 'never_rebalance')) THEN
+      never_rebalance = as_logical_print(value, element, errcode)
+
+#endif
     ELSE
       errcode = c_err_unknown_element
 

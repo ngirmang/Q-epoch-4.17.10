@@ -24,11 +24,17 @@ MODULE media
   USE utilities
   USE partlist
   USE random_generator
+  USE mpi
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ionise_media, initialise_media, media_particle_production,&
-       update_medium_n1n2, update_electron_medium_eps, deallocate_media
+    update_medium_n1n2, update_electron_medium_eps, deallocate_media,&
+    medium_bcs, force_realloc_medium_buffers
+
+  REAL(num), DIMENSION(:), ALLOCATABLE :: &
+    bcbuf_xmax, bcbuf_xmin, &
+    bcbuf_ymax, bcbuf_ymin
 
   REAL(num), PARAMETER :: c_sq = c**2, e_mass = m0, e_restE = m0*c_sq
 
@@ -492,6 +498,12 @@ CONTAINS
       ncur_species = media_list(im)%species
 
       IF (.NOT. species_list(ncur_species)%ionise) CYCLE
+      IF (rank == 0) THEN
+        PRINT &
+          '("media ",A, ":use_field_ionisation = ",L1, ", use_collisional_ionisation = ",L1)', &
+          TRIM(species_list(ncur_species)%name), media_list(im)%use_field_ionisation, &
+          media_list(im)%use_collisional_ionisation
+      END IF
 
       next_species = species_list(ncur_species)%ionise_to_species
       ion_charge = species_list(next_species)%charge
@@ -618,6 +630,7 @@ CONTAINS
          ncreate_coll_total, ncreate_field_total
     INTEGER :: ncreate_coll_totalr, ncreate_field_totalr, ierr, &
          itimest, itimeen, ncell_fieldionis
+    INTEGER :: ixmn, iymn
 
     REAL(num) enorm, rate, dN, cur_N, U0, dN_field, &
          next_create_min, next_create_max, next_weight, &
@@ -641,6 +654,8 @@ CONTAINS
          use_probsm,& ! use probablistic ionisation for sub next_create_min
          per_coll     ! do collision count sampling on a per collision basis
 
+    LOGICAL :: ran_collision_ionise
+
     INTEGER(8) :: nelec
     INTEGER :: npart
     REAL(num) :: e_p2_st, e_ke_st, e_v_st, e_ke_en, gr, red_inc, red_ion, &
@@ -653,6 +668,7 @@ CONTAINS
     DO im=1,n_media
 
       ncreate_field_total = 0 ; ncreate_coll_total = 0
+      ncell_fieldionis = 0
 
       CALL system_clock(itimest)
 
@@ -661,6 +677,9 @@ CONTAINS
 
       enorm_max = 0.0_num
       rate_max  = 0.0_num
+
+
+      ran_collision_ionise = .FALSE.
 
       IF (.NOT. species_list(ncur_spec)%ionise) CYCLE
 
@@ -698,8 +717,8 @@ CONTAINS
         ion_charge = species_list(next_spec)%charge
         rate_c = 0
 
-        DO iy = 0,ny
-  xlp1: DO ix = 0,nx
+        DO iy = 1,ny
+  xlp1: DO ix = 1,nx
           cur_N = media_density(ix,iy,im)
 
           IF (cur_N .LT. lowdens) CYCLE xlp1
@@ -709,6 +728,8 @@ CONTAINS
           IF (nelec .eq. 0) CYCLE xlp1
 
           CALL create_empty_partlist(new_e_plist)
+
+          ran_collision_ionise = .TRUE.
 
 nelp:     DO ne=1,nelec
             cur_N = media_density(ix,iy,im)
@@ -828,7 +849,7 @@ nelp:     DO ne=1,nelec
               IF (media_density(ix, iy, n) .lt. 0) &
                    media_density(ix,iy,n) = 0.0_num
             END IF
-
+            IF (dN > 0.0) PRINT '("collisional ionisation at rank=",I3.3,"pos=",2ES9.1)', rank, x(ix), y(iy)
             cur => cur%next
           END DO nelp
 
@@ -849,10 +870,8 @@ nelp:     DO ne=1,nelec
       IF (cur_medium%use_field_ionisation) THEN
         ncreate_field_total = 0
 
-        ncell_fieldionis = 0
-
-        DO iy = 0,ny
-  xlp2: DO ix = 0,nx
+        DO iy = 1,ny
+  xlp2: DO ix = 1,nx
 
           cur_N = media_density(ix,iy,im)
           ncreate = 0
@@ -956,17 +975,21 @@ nelp:     DO ne=1,nelec
                &" ncell_fieldionis = ", I4.4)', rank, n, ncell_fieldionis
         END IF
 
-        DO iy = 0,ny
-  xlp3: DO ix = 0,nx
+        DO iy = 1,ny
+  xlp3: DO ix = 1,nx
 
           IF      ( media_density(ix,iy,im) < min_N ) THEN
             min_N = media_density(ix,iy,im)
+            ixmn = ix
+            iymn = iy
           ELSE IF ( media_density(ix,iy,im) > max_N ) THEN
             max_N = media_density(ix,iy,im)
           END IF
         END DO xlp3
         END DO
 
+        !PRINT '("rank = ", I3.3, ", nx,ny = ",2I6.5,": ix,iy min = ",2I6.5, "-:",ES9.1)', &
+        !  rank, nx, ny, ixmn, iymn, media_density(nx,1,2)
 
         CALL MPI_REDUCE(ncreate_coll_total, ncreate_coll_totalr, &
              1, MPI_INTEGER, MPI_SUM, 0, comm, ierr)
@@ -980,7 +1003,7 @@ nelp:     DO ne=1,nelec
         !CALL MPI_REDUCE(rate_max, rate_maxr, 1, mpireal, MPI_MAX, 0, &
         !     comm, ierr)
 
-        IF (rank == 0 ) THEN
+        IF ( rank == 0 ) THEN
 
           PRINT '("media_ionise: species=",A,", step=",I7.7,", field ionis.=",I5.5,&
                  &", coll. ionis.=",I5.5,", peak E=",&
@@ -995,6 +1018,8 @@ nelp:     DO ne=1,nelec
       END IF
 
     END DO ! each medium
+
+    CALL medium_bcs
 
   END SUBROUTINE ionise_media
 
@@ -1017,8 +1042,8 @@ nelp:     DO ne=1,nelec
 
       nmax_create = cur_medium%nmax_create
 
-      DO iy = 0, ny
-xlp4: DO ix = 0, nx
+      DO iy = 1, ny
+xlp4: DO ix = 1, nx
 
         cur_N = media_density(ix, iy, im)
 
@@ -1166,7 +1191,7 @@ xlp4: DO ix = 0, nx
 
 
   SUBROUTINE update_electron_medium_eps
-    INTEGER :: ix,iy, im
+    INTEGER :: ix, iy, im
     REAL(num) :: N_c
 
     IF (ielectron_medium == -1) RETURN
@@ -1174,12 +1199,181 @@ xlp4: DO ix = 0, nx
     im = ielectron_medium
 
     N_c = omega**2*epsilon0*m0/q0**2
-
-    epsx = epsx - media_density(:,:,im) / N_c
-    epsy = epsy - media_density(:,:,im) / N_c
-    epsz = epsz - media_density(:,:,im) / N_c
+    DO iy = 0,ny
+    DO ix = 0,nx
+      epsx(ix,iy) = epsx(ix,iy) - media_density(ix,iy,im) / N_c
+      epsy(ix,iy) = epsy(ix,iy) - media_density(ix,iy,im) / N_c
+      epsz(ix,iy) = epsz(ix,iy) - media_density(ix,iy,im) / N_c
+    END DO
+    END DO
 
   END SUBROUTINE update_electron_medium_eps
+
+
+
+  SUBROUTINE medium_bcs
+
+    INTEGER :: im
+
+    CALL alloc_medium_buffs
+
+    DO im = 1, n_media
+
+      CALL medium_bcs_single(im)
+
+    END DO
+
+  END SUBROUTINE medium_bcs
+
+
+
+  SUBROUTINE medium_bcs_single(im)
+
+    INTEGER, INTENT(IN) :: im
+    INTEGER :: proc_min, proc_max, istat, ierr, i, j, n
+
+    ! x direction
+    ! send to max, recv from min
+    IF (.NOT. x_max_boundary .OR. bc_field(c_bd_x_max) == c_bc_periodic) THEN
+      proc_max = proc_x_max
+      n = 1
+      DO j =    1, ny
+      DO i = nx-1, nx
+        bcbuf_xmax(n) = media_density(i,j,im)
+        n = n + 1
+      END DO
+      END DO
+    ELSE
+      proc_max = MPI_PROC_NULL
+    END IF
+
+    proc_min = proc_x_min
+    IF (x_min_boundary .AND. bc_field(c_bd_x_min) /= c_bc_periodic) &
+      proc_min = MPI_PROC_NULL
+
+    CALL MPI_SENDRECV(&
+      bcbuf_xmax(1), ny*2, mpireal, proc_max, tag, &
+      bcbuf_xmin(1), ny*2, mpireal, proc_min, tag, &
+      comm, status, errcode)
+
+    IF (proc_min /= MPI_PROC_NULL) THEN
+      n = 1
+      DO j =    1, ny
+      DO i =   -1,  0
+        media_density(i,j,im) = bcbuf_xmin(n)
+        n = n + 1
+      END DO
+      END DO
+
+      ! prep for send to min, recv from max
+      n = 1
+      DO j =    1, ny
+      DO i =    1,  2
+        bcbuf_xmin(n) = media_density(i,j,im)
+        n = n + 1
+      END DO
+      END DO
+
+    END IF
+
+    CALL MPI_SENDRECV(&
+      bcbuf_xmin(1), ny*2, mpireal, proc_min, tag, &
+      bcbuf_xmax(1), ny*2, mpireal, proc_max, tag, &
+      comm, status, errcode)
+
+    IF (proc_max /= MPI_PROC_NULL) THEN
+      n = 1
+      DO j =    1, ny
+      DO i = nx+1, nx+2
+        media_density(i,j,im) = bcbuf_xmax(n)
+         n = n + 1
+      END DO
+      END DO
+    END IF
+
+    ! y direction
+    ! send to max, recv from min
+    IF (.NOT. y_max_boundary .OR. bc_field(c_bd_y_max) == c_bc_periodic) THEN
+        proc_max = proc_y_max
+        n = 1
+        DO j = ny-1, ny
+        DO i =    1, nx
+          bcbuf_ymax(n) = media_density(i,j,im)
+          n = n + 1
+        END DO
+        END DO
+      ELSE
+        proc_max = MPI_PROC_NULL
+      END IF
+
+      proc_min = proc_y_min
+      IF (y_min_boundary .AND. bc_field(c_bd_y_min) /= c_bc_periodic) &
+        proc_min = MPI_PROC_NULL
+
+      CALL MPI_SENDRECV(&
+        bcbuf_ymax(1), nx*2, mpireal, proc_max, tag, &
+        bcbuf_ymin(1), nx*2, mpireal, proc_min, tag, &
+        comm, status, errcode)
+
+      IF (proc_min /= MPI_PROC_NULL) THEN
+        DO j = -1,  0
+        DO i =  1, nx
+          media_density(i,j,im) = bcbuf_ymin(n)
+          n = n + 1
+        END DO
+        END DO
+
+
+      ! prep for send to min, recv from max
+      n = 1
+      DO j = 1,  2
+      DO i = 1, nx
+        bcbuf_ymin(n) = media_density(i,j,im)
+        n = n + 1
+      END DO
+      END DO
+    END IF
+
+    CALL MPI_SENDRECV(&
+      bcbuf_ymin(1), nx*2, mpireal, proc_min, tag, &
+      bcbuf_ymax(1), nx*2, mpireal, proc_max, tag, &
+      comm, status, errcode)
+
+    IF (proc_max /= MPI_PROC_NULL) THEN
+      n = 1
+      DO j = ny+1, ny+2
+      DO i =    1, nx
+        media_density(i,j,im) = bcbuf_xmax(n)
+        n = n + 1
+      END DO
+      END DO
+    END IF
+
+  END SUBROUTINE medium_bcs_single
+
+
+
+
+  SUBROUTINE force_realloc_medium_buffers
+    IF ( ALLOCATED(bcbuf_xmax) ) DEALLOCATE(bcbuf_xmax)
+    IF ( ALLOCATED(bcbuf_ymax) ) DEALLOCATE(bcbuf_ymax)
+    IF ( ALLOCATED(bcbuf_xmin) ) DEALLOCATE(bcbuf_xmin)
+    IF ( ALLOCATED(bcbuf_ymin) ) DEALLOCATE(bcbuf_ymin)
+
+    CALL alloc_medium_buffs
+
+  END SUBROUTINE force_realloc_medium_buffers
+
+
+
+  SUBROUTINE alloc_medium_buffs
+
+    IF (.NOT. ALLOCATED(bcbuf_xmax) ) ALLOCATE(bcbuf_xmax(1:ny*2))
+    IF (.NOT. ALLOCATED(bcbuf_xmin) ) ALLOCATE(bcbuf_xmin(1:ny*2))
+    IF (.NOT. ALLOCATED(bcbuf_ymax) ) ALLOCATE(bcbuf_ymax(1:nx*2))
+    IF (.NOT. ALLOCATED(bcbuf_ymin) ) ALLOCATE(bcbuf_ymin(1:nx*2))
+
+  END SUBROUTINE alloc_medium_buffs
 
 
 

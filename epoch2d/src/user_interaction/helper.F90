@@ -125,7 +125,8 @@ CONTAINS
 #ifdef MEDIUM
       IF (species%medium_species) THEN
         n = species%medium_index
-        media_density(:,:,n) = species_density
+        ! we try extending into the guard cells later
+        media_density(1:nx,1:ny,n) = species_density(1:nx,1:ny)
         CYCLE
       END IF
 #endif

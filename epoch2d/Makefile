@@ -184,7 +184,8 @@ DEFINES += $(D)NEWPML $(D)COLL_ELECCHECK $(D)SKIP_ZEROPARTS $(D)CONSTEPS
 DEFINES += $(D)NONLIN $(D)GLOBALFIELD $(D)MEDIUM $(D)MERGE_PARTICLES
 DEFINES += $(D)EXTPARTFIELD $(D)QUANTUM_NUMS $(D)DIGITAL_DENSITY
 DEFINES += $(D)PERFMON2D
-
+#DEFINES += $(D)HACK_FIX_MEDIA_RESTART
+DEFINES += $(D)HACK_NEVER_REBALANCE
 # The following are a list of pre-processor defines which can be added to
 # the above line modifying the code behaviour at compile time.
 
@@ -459,7 +460,7 @@ FORCE:
 # All the dependencies
 
 balance.o: balance.F90 boundary.o constants.o mpi_subtype_control.o \
-  redblack_module.o timer.o utilities.o
+  redblack_module.o timer.o utilities.o media.o
 boundary.o: boundary.F90 injectors.o laser.o mpi_subtype_control.o \
   particle_id_hash.o particle_temperature.o partlist.o utilities.o
 bremsstrahlung.o: bremsstrahlung.F90 calc_df.o partlist.o setup.o
@@ -538,7 +539,7 @@ iterators.o: iterators.F90 particle_id_hash.o particle_pointer_advance.o \
 laser.o: laser.f90 custom_laser.o evaluate.o
 media.o: media.F90 shared_data.o random_generator.o utilities.o partlist.o
 merge.o: merge.F90 shared_data.o utilities.o partlist.o
-mpi_routines.o: mpi_routines.F90 helper.o
+mpi_routines.o: mpi_routines.F90 helper.o media.o
 mpi_subtype_control.o: mpi_subtype_control.f90 shared_data.o
 numerics.o: numerics.f90 constants.o
 particle_id_hash.o: particle_id_hash.F90 constants.o random_generator.o \
@@ -572,4 +573,4 @@ tokenizer_blocks.o: tokenizer_blocks.f90 strings.o
 utilities.o: utilities.F90 constants.o shared_data.o
 version_data.o: version_data.F90 $(SRCDIR)/COMMIT
 welcome.o: welcome.F90 shared_data.o terminal_controls.o version_data.o
-window.o: window.F90 boundary.o evaluate.o partlist.o
+window.o: window.F90 boundary.o evaluate.o partlist.o media.o

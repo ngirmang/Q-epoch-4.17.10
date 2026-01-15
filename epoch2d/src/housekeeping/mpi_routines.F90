@@ -16,6 +16,9 @@
 MODULE mpi_routines
 
   USE helper
+#ifdef MEDIUM
+  USE media, only : force_realloc_medium_buffers
+#endif
 
   IMPLICIT NONE
 
@@ -413,8 +416,10 @@ CONTAINS
       END IF
     END IF
 #ifdef MEDIUM
-    IF (n_media > 0) &
+    IF (n_media > 0) THEN
       ALLOCATE(media_density(1-ng:nx+ng, 1-ng:ny+ng, n_media))
+      CALL force_realloc_medium_buffers
+    END IF
     IF (use_media_alpha .AND. n_media .GT. 0) THEN
       ALLOCATE(eps_delta_n1(1-ng:nx+ng, 1-ng:ny+ng))
       ALLOCATE(eps_delta_n2(1-ng:nx+ng, 1-ng:ny+ng))

@@ -1085,7 +1085,10 @@ CONTAINS
       END IF
 
       CALL fill_array(species_list(species_id)%density_function, &
-          array, mult, mult_string, element, value, filename, got_file)
+        array, mult, mult_string, element, value, filename, got_file)
+#ifdef MEDIUM
+      species_list(species_id)%function_defined = .TRUE.
+#endif
       RETURN
     END IF
 

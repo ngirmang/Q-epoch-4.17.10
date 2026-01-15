@@ -272,6 +272,7 @@ MODULE shared_data
 #endif
 #ifdef MEDIUM
     INTEGER :: medium_index = -1
+    LOGICAL :: function_defined = .FALSE.
 #endif
 #ifdef MERGE_PARTICLES
     LOGICAL :: merge = .FALSE.
@@ -567,6 +568,7 @@ MODULE shared_data
     INTEGER :: species = -1
 
     LOGICAL :: is_electron_species = .FALSE. ! this is an electron medium model
+    LOGICAL :: func_inited = .FALSE.
 
     ! minimum production density to produce a electron macroparticle
     REAL(num) :: particle_create_density = HUGE(1.0_num)
@@ -604,6 +606,10 @@ MODULE shared_data
 
   REAL(num), DIMENSION(:,:), ALLOCATABLE :: eps_delta_n1, eps_delta_n2
   LOGICAL :: use_media_alpha = .FALSE.
+!#ifdef HACK_FIX_MEDIA_RESTART
+!  LOGICAL, PARAMETER :: media_restart_dofix = .TRUE.
+!  LOGICAL :: media_restart_fixed = .FALSE.
+!#endif
 #endif
 
   !----------------------------------------------------------------------------
@@ -931,6 +937,12 @@ MODULE shared_data
   REAL(num) :: total_field_energy = 0.0_num
   REAL(num) :: total_particle_energy = 0.0_num
   REAL(num), ALLOCATABLE :: total_particle_energy_species(:)
+
+#ifdef HACK_NEVER_REBALANCE
+  ! other
+  LOGICAL :: never_rebalance = .FALSE.
+  LOGICAL :: never_rebalance_notice_output = .FALSE.
+#endif
 
   !----------------------------------------------------------------------------
   ! custom particle loading - written by MP Tooley
